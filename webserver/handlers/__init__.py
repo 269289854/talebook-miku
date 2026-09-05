@@ -19,6 +19,7 @@ def routes():
         network_library,
         opds,
         plugins,
+        publication,
         scan,
         theme,
         user,
@@ -29,6 +30,7 @@ def routes():
     routes += scan.routes()
     routes += opds.routes()
     routes += book.routes()
+    routes += publication.routes()
     routes += annotations.routes()
     routes += comic.routes()
     routes += user.routes()

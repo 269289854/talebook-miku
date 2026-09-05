@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<title>确认覆盖发布 · ACTIVE</title>
+<style>
+:root{color-scheme:light;--ink:#1f2937;--line:#d7dfeb;--muted:#536176;--accent:#176443}
+*{box-sizing:border-box}body{margin:0;color:var(--ink);background:#f6f7fb;font:15px/1.7 system-ui,sans-serif}
+main{max-width:1000px;margin:auto;padding:24px}header,section{padding:24px 0;border-bottom:1px solid var(--line)}
+h1{font-size:30px;line-height:1.3;letter-spacing:0}h2{font-size:21px}h3{font-size:17px}
+p,li{overflow-wrap:anywhere}a{color:var(--accent)}a:focus-visible{outline:3px solid var(--accent)}
+code{font-size:14px;overflow-wrap:anywhere}.meta{color:var(--muted)}.pending{color:#9a4d0c}
+table{border-collapse:collapse;width:100%}th,td{padding:10px;border:1px solid var(--line);text-align:left}
+@media(max-width:600px){main{padding:16px}h1{font-size:26px}}
+@media print{body{background:white}section{break-inside:avoid}}
+</style>
+</head>
+<body><main>
+<header><h1>确认覆盖发布</h1><p class="meta">创建日期：2026-09-06 · 模块：webserver · 状态：ACTIVE</p>
+<p>来源：用户要求“旧书在要询问我是否覆盖，如果要覆盖要能支持覆盖”。消费者为 Calibre-Miku Electron 客户端；不修改 moke-miku 阅读客户端。</p></header>
+<section id="request"><h2>原始诉求</h2><p>为已有书籍补充本地生成的章节目录，允许确认后更新服务器已有 EPUB；后端删除整本旧书后，本地残留 ID 不应永远阻止重新上传。</p></section>
+<section id="goals"><h2>目标与边界</h2><ul>
+<li>现有普通上传保持不覆盖。新接口仅接受管理员显式确认后的请求，保留书籍 ID、TXT、阅读记录及收藏记录。</li>
+<li>覆盖 EPUB、简介、标签、封面，以及本地已审核的书名和作者。不会重跑模型，不改变原始 TXT。</li>
+<li>确认绑定远端版本和本地配置/书籍/章节快照。取消确认不创建覆盖任务；目标变化必须重新确认。</li>
+<li>不删除旧书。先持久备份再写入，普通异常回滚；进程崩溃造成未决事务时保留备份并阻止静默重传。</li>
+<li>仅支持 Calibre 管理的普通书籍；外部路径索引书明确拒绝，避免修改用户外部原始文件。</li>
+</ul></section>
+<section id="decisions"><h2>决策审视</h2><p>按仓库 grill 流程逐项核对：用户已明确要求交互确认与覆盖；默认选择保留 ID 而非删除重建，完整已审核发布数据而非只上传 TXT，失败不降级为破坏性方案。当前环境未找到 grill skill，以上决策和后续反馈集中记录在本方案。</p>
+<p>普通任务不含授权时，发现旧书进入需确认状态；重试不隐式批准覆盖。仅在服务端明确确认删除且管理员身份核验通过时清除陈旧关联，再查重发布。网络错误、权限错误或不明 404 不能当作已删除。</p></section>
+<section id="design"><h2>方案</h2><ol>
+<li>后端新增 <code>GET /api/book/{id}/publication</code>：返回可覆盖能力、书籍身份、EPUB 与元数据的版本摘要；携带 request_id 时查询本次替换结果。</li>
+<li>新增 <code>POST /api/book/{id}/publication</code>：multipart EPUB、封面、结构化元数据、预期版本、唯一请求编号；文件校验、管理员权限、版本冲突检测、备份与失败回滚。</li>
+<li>请求编号及输入摘要持久化。同编号不同输入拒绝，已成功请求恢复时只核验，不重复覆盖。返回 EPUB 哈希用于客户端确认文件确已更新。</li>
+<li>Calibre-Miku 在上传入口查询实际旧书，显示明确的覆盖确认框。任务保存授权目标与版本，队列按目标服务器/远端 ID 互斥，上传仍不占 GPU。</li>
+<li>客户端检查服务器能力；未部署新接口则提示升级，不调用删除格式/删除书籍接口绕过。</li>
+</ol></section>
+<section id="risk"><h2>影响与风险</h2><p>EPUB 章节结构变化后，原有阅读定位可能不再对应原位置，确认框需提示；保留记录不等于能自动映射新旧位置。备份占用磁盘，需要管理员保留和管理。当前 Tornado 单进程和替换接口内锁不能替代跨进程或外部 Calibre 写入协调，版本检查用于拒绝已发现的冲突。</p>
+<p>不直接覆盖用户真实书籍，不安装或重启用户运行中的桌面应用。远端 Docker 验证只使用独立容器与临时普通文本书库，不挂载生产数据卷。Moke 阅读端源码不修改。</p></section>
+<section id="tests"><h2>测试结果</h2><p>服务端权限、版本冲突、文件校验、备份回滚、请求幂等、未决恢复，以及客户端确认、能力探测、断线恢复和同目标锁均已完成自动化验证。</p>
+<ul>
+<li>本地 Calibre-Miku：108 项单元测试通过、2 项跳过；类型检查、构建、Electron E2E 通过，桌面和紧凑任务进度截图已检查。</li>
+<li>后端 publication 单元测试：11 项与 5 个参数子测试通过。Windows 实际 Calibre 临时书库验证了覆盖、TXT 保留、ID 保留、请求幂等和异常回滚。</li>
+<li>线上运行环境的独立候选镜像：实际 Linux Calibre 测试通过；9 项 HTTP 测试通过，含管理员权限、确认、版本冲突、未授权访问、EPUB Range/ETag/目录资源、另一本文档 PDF Range 与阅读进度保留。</li>
+<li>旧版 Calibre 标准封面写入会重编码，现通过缓存 API 更新元数据和缩略图失效后，在同一写锁内使用 backend.set_cover(no_processing=True) 保留经验证的 JPEG 原始字节；在两端实际 Calibre 验证。</li>
+<li>已验证候选与当前生产的 book.py、files.py、base.py、models.py 四个文件哈希完全相同。新增接口不改 Moke 在线阅读代码，覆盖操作后清除 Tornado 静态 ETag 缓存，防止同路径旧版本 304。</li>
+<li>隔离候选服务完整启动，内部 /api/welcome 返回 200。生产覆盖接口尚未切换上线，桌面新包尚未安装。</li>
+</ul>
+<p>部署事故记录：早期直接复制本地完整 handler 注册文件导致旧版后端导入 external_index 失败；已从原镜像恢复原注册文件，重启后容器 healthy，内部和公网 HTTP 均为 200。没有执行真实书籍覆盖。后续使用恢复后的运行容器快照保留既有补丁，只增量注册 publication 路由；不再用本地完整注册文件覆盖线上。</p>
+<p>Moke 缓存限制：本地源码的书籍详情缓存 TTL 为 30 分钟，缓存有效期内不请求远端；已下载离线书不会自动替换。当前不承诺覆盖后即时同步。Moke 源码未修改；来源与进度定向测试 6 项通过，全量 345 项通过、17 项失败，失败涉及本地缺失依赖及 Tauri 文件；Readest 子模块未检出，完整阅读器 UI 自动换版本行为未验证。</p>
+<p>界面审查豁免：本次服务端增量部署只新增管理员认证的 JSON 与 multipart 接口，没有修改页面、交互、文案或其他可视结果；客户端界面已在其自身测试中完成验证。没有在生产书库执行真实覆盖，避免用用户书籍做破坏性验收。</p>
+<p>生产部署：基于健康运行的 <code>talebook/moke-library-scroll:20260903-141000</code> 快照构建增量镜像 <code>talebook-miku:publication-20260905t183531z</code>，切换前创建一致性快照 <code>/data/talebook-backups/20260905T183646Z</code>。切换后容器健康，书库保持 205 本；源站及 Cloudflare 公网 capability v1、OPDS、WebDAV、Nginx、Xray、WA、Authentik、PostgreSQL 和 Redis 均通过验证。</p></section>
+<footer><p>基于 design/TEMPLATE.html 的元信息、必备章节、离线和响应式基线裁剪；本任务所有迭代仅维护本文件。</p></footer>
+</main></body></html>
