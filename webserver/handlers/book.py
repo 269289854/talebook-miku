@@ -1026,6 +1026,9 @@ class BookDownload(BaseHandler, web.StaticFileHandler):
         self.root = "/"
         self.default_filename = None
         self.is_opds = self.get_argument("from", "") == "opds"
+        self.is_read_mode = self.get_argument("mode", "").lower() == "read"
+        self.download_content_type = "application/octet-stream"
+        self.download_content_disposition = None
         BaseHandler.initialize(self)
 
     def prepare(self):
@@ -1054,10 +1057,14 @@ class BookDownload(BaseHandler, web.StaticFileHandler):
         logging.error("download %s bid=%s, fmt=%s" % (filename, bid, fmt))
         book = self.get_book_or_404(bid)
         book_id = book["id"]
-        self.user_history("download_history", book)
-        self.count_increase(book_id, count_download=1)
+        if not self.is_read_mode:
+            self.user_history("download_history", book)
+            self.count_increase(book_id, count_download=1)
         if "fmt_%s" % fmt not in book:
             raise web.HTTPError(404, reason=_("%s格式无法下载" % fmt))
+
+        if self.is_read_mode and fmt not in ("epub", "pdf"):
+            raise web.HTTPError(415, reason=_("%s格式暂不支持在线阅读" % fmt))
 
         path = book["fmt_%s" % fmt]
         book["fmt"] = fmt
@@ -1067,19 +1074,25 @@ class BookDownload(BaseHandler, web.StaticFileHandler):
         if self.is_opds:
             att = 'attachment; filename="%(id)d.%(fmt)s"' % book
 
-        # PDF 文件使用 application/pdf，允许浏览器内联预览（供 pdfjs 等在线阅读器使用）
-        # 其他格式使用 application/octet-stream 强制下载
-        if fmt == "pdf":
-            self.set_header("Content-Type", "application/pdf")
-            # 在线阅读时不附加 Content-Disposition attachment，避免触发下载
+        if self.is_read_mode:
+            self.download_content_type = "application/pdf" if fmt == "pdf" else "application/epub+zip"
+            self.download_content_disposition = f'inline; filename="{fname}"'.encode("UTF-8")
+        elif fmt == "pdf":
+            self.download_content_type = "application/pdf"
             if not self.is_opds:
-                self.set_header("Content-Disposition", f'inline; filename="{fname}"'.encode("UTF-8"))
+                self.download_content_disposition = f'inline; filename="{fname}"'.encode("UTF-8")
             else:
-                self.set_header("Content-Disposition", att.encode("UTF-8"))
+                self.download_content_disposition = att.encode("UTF-8")
         else:
-            self.set_header("Content-Disposition", att.encode("UTF-8"))
-            self.set_header("Content-Type", "application/octet-stream")
+            self.download_content_disposition = att.encode("UTF-8")
         return path
+
+    def set_extra_headers(self, path: str) -> None:
+        self.set_header("Content-Type", self.download_content_type)
+        if self.download_content_disposition:
+            self.set_header("Content-Disposition", self.download_content_disposition)
+        if self.is_read_mode:
+            self.set_header("Cache-Control", "private, no-cache")
 
     @classmethod
     def get_absolute_path(cls, root: str, path: str) -> str:
@@ -1128,29 +1141,39 @@ class LibraryBook(ListHandler):
         tag = self.get_argument("tag", None)
         book_format = self.get_argument("format", None)
         stream = self.get_argument("stream", None)
+        order = self.get_argument("order", "desc").lower()
+        if order not in ("asc", "desc"):
+            order = "desc"
 
         ids = self.books_by_id()
 
         if publisher and publisher != "全部":
             publisher_books = self.db.search_getting_ids(f"publisher:'{publisher}'", "")
-            ids = list(set(ids) & set(publisher_books))
+            publisher_ids = set(publisher_books)
+            ids = [book_id for book_id in ids if book_id in publisher_ids]
 
         if author and author != "全部":
             author_books = self.db.search_getting_ids(f"author:'{author}'", "")
-            ids = list(set(ids) & set(author_books))
+            author_ids = set(author_books)
+            ids = [book_id for book_id in ids if book_id in author_ids]
 
         if tag and tag != "全部":
             tag_books = self.db.search_getting_ids(f"tag:'{tag}'", "")
-            ids = list(set(ids) & set(tag_books))
+            tag_ids = set(tag_books)
+            ids = [book_id for book_id in ids if book_id in tag_ids]
 
         if book_format and book_format != "全部":
             books = self.get_books(ids=ids)
             ids = [book["id"] for book in books if f"fmt_{book_format.lower()}" in book]
 
+        ids.sort(reverse=order == "desc")
+        id_ascending = order == "asc"
         if stream == "1":
-            return await self.stream_book_list([], ids=ids, title=title, sort_by_id=True)
+            return await self.stream_book_list(
+                [], ids=ids, title=title, sort_by_id=True, id_ascending=id_ascending
+            )
 
-        return self.render_book_list([], ids=ids, title=title, sort_by_id=True)
+        return self.render_book_list([], ids=ids, title=title, sort_by_id=True, id_ascending=id_ascending)
 
 
 class SearchBook(ListHandler):

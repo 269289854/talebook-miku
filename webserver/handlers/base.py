@@ -688,7 +688,7 @@ class ListHandler(BaseHandler):
             self.do_sort(items, "id", False)
         return None
 
-    def render_book_list(self, all_books, ids=None, title=None, sort_by_id=False):
+    def render_book_list(self, all_books, ids=None, title=None, sort_by_id=False, id_ascending=False):
         start = self.get_argument_start()
         max_size = max(int(CONF.get("DEFAULT_PAGE_SIZE", 60)), 60)
         try:
@@ -703,8 +703,7 @@ class ListHandler(BaseHandler):
             count = len(ids)
             books = self.get_books(ids=ids[start : start + delta], check_permission=False)
             if sort_by_id:
-                # 归一化，按照 id 从大到小排列。
-                self.do_sort(books, "id", False)
+                self.do_sort(books, "id", id_ascending)
         else:
             all_books = [b for b in all_books if b["id"] not in private_book_ids]
             count = len(all_books)
@@ -716,7 +715,7 @@ class ListHandler(BaseHandler):
             "books": self.attach_reading_states([self.fmt(b) for b in books]),
         }
 
-    async def stream_book_list(self, all_books, ids=None, title=None, sort_by_id=False):
+    async def stream_book_list(self, all_books, ids=None, title=None, sort_by_id=False, id_ascending=False):
         import json
 
         start = self.get_argument_start()
@@ -728,7 +727,7 @@ class ListHandler(BaseHandler):
             count = len(ids)
             books = self.get_books(ids=ids[start : start + delta], check_permission=False)
             if sort_by_id:
-                self.do_sort(books, "id", False)
+                self.do_sort(books, "id", id_ascending)
         else:
             all_books = [b for b in all_books if b["id"] not in private_book_ids]
             count = len(all_books)

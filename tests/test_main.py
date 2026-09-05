@@ -278,6 +278,38 @@ class TestAppWithoutLogin(TestApp):
         for book in d["books"]:
             self.assertEqual(book["state"]["read_state"], 0)
 
+    def test_library_order_defaults_to_desc_and_accepts_asc(self):
+        default_ids = [book["id"] for book in self.json("/api/library?size=60")["books"]]
+        desc_ids = [book["id"] for book in self.json("/api/library?size=60&order=desc")["books"]]
+        invalid_ids = [book["id"] for book in self.json("/api/library?size=60&order=sideways")["books"]]
+        asc_ids = [book["id"] for book in self.json("/api/library?size=60&order=asc")["books"]]
+
+        self.assertEqual(default_ids, sorted(default_ids, reverse=True))
+        self.assertEqual(desc_ids, default_ids)
+        self.assertEqual(invalid_ids, default_ids)
+        self.assertEqual(asc_ids, sorted(default_ids))
+
+    def test_library_order_is_global_before_pagination(self):
+        all_ids = [book["id"] for book in self.json("/api/library?size=60&order=asc")["books"]]
+        first = [book["id"] for book in self.json("/api/library?start=0&size=2&order=asc")["books"]]
+        second = [book["id"] for book in self.json("/api/library?start=2&size=2&order=asc")["books"]]
+
+        self.assertEqual(first + second, all_ids[:4])
+        self.assertTrue(set(first).isdisjoint(second))
+
+    def test_library_filters_keep_requested_id_order(self):
+        library = self.json("/api/library?size=60&order=desc")["books"]
+        format_asc = self.json("/api/library?size=60&order=asc&format=EPUB")["books"]
+        format_ids = [book["id"] for book in format_asc]
+        self.assertEqual(format_ids, sorted(format_ids))
+
+        sample = next((book for book in library if book.get("tags")), None)
+        self.assertIsNotNone(sample)
+        tag = sample["tags"][0]
+        tag_desc = self.json("/api/library?size=60&order=desc&tag=" + Q(tag))["books"]
+        tag_ids = [book["id"] for book in tag_desc]
+        self.assertEqual(tag_ids, sorted(tag_ids, reverse=True))
+
     def test_download(self):
         rsp = self.fetch("/api/book/1.epub", follow_redirects=False)
         self.assertEqual(rsp.code, 302)
@@ -538,15 +570,68 @@ class TestBook(TestWithUserLogin):
         self.assertEqual(rsp.code, 206)
         self.assertEqual(rsp.body, book_body[1:])
 
+    def test_online_read_supports_private_head_and_range_without_download_side_effects(self):
+        session = get_db()
+        user = session.query(models.Reader).filter(models.Reader.id == 1).one()
+        item = session.query(models.Item).filter(models.Item.book_id == BID_EPUB).one_or_none()
+        original_extra = json.loads(json.dumps(user.extra))
+        original_count = item.count_download if item else None
+
+        head = self.fetch("/api/book/1.epub?mode=read", method="HEAD")
+        self.assertEqual(head.code, 200)
+        self.assertTrue(head.headers["Content-Type"].startswith("application/epub+zip"))
+        self.assertTrue(head.headers["Content-Disposition"].startswith("inline;"))
+        self.assertEqual(head.headers["Cache-Control"], "private, no-cache")
+        self.assertEqual(head.headers["Accept-Ranges"], "bytes")
+
+        first = self.fetch("/api/book/1.epub?mode=read", headers={"Range": "bytes=0-127"})
+        second = self.fetch("/api/book/1.epub?mode=read", headers={"Range": "bytes=128-255"})
+        self.assertEqual(first.code, 206)
+        self.assertEqual(second.code, 206)
+        self.assertEqual(len(first.body), 128)
+        self.assertTrue(first.headers["Content-Range"].startswith("bytes 0-127/"))
+
+        session = get_db()
+        user = session.query(models.Reader).filter(models.Reader.id == 1).one()
+        item = session.query(models.Item).filter(models.Item.book_id == BID_EPUB).one_or_none()
+        self.assertEqual(json.loads(json.dumps(user.extra)), original_extra)
+        self.assertEqual(item.count_download if item else None, original_count)
+
+    def test_online_read_pdf_mime_and_format_allowlist(self):
+        pdf = self.fetch("/api/book/5.pdf?mode=read", method="HEAD")
+        self.assertEqual(pdf.code, 200)
+        self.assertTrue(pdf.headers["Content-Type"].startswith("application/pdf"))
+        self.assertTrue(pdf.headers["Content-Disposition"].startswith("inline;"))
+        self.assertEqual(pdf.headers["Cache-Control"], "private, no-cache")
+
+        txt = self.fetch("/api/book/2.txt?mode=read", follow_redirects=False)
+        self.assertEqual(txt.code, 415)
+
+    def test_normal_range_download_still_updates_download_count(self):
+        session = get_db()
+        item = session.query(models.Item).filter(models.Item.book_id == BID_EPUB).one_or_none()
+        original_count = item.count_download if item else 0
+
+        rsp = self.fetch("/api/book/1.epub", headers={"Range": "bytes=0-0"})
+        self.assertEqual(rsp.code, 206)
+
+        session = get_db()
+        item = session.query(models.Item).filter(models.Item.book_id == BID_EPUB).one()
+        self.assertEqual(item.count_download, original_count + 1)
+
     def test_download_permission(self):
         with mock_permission() as user:
             user.set_permission("S")  # forbid
             rsp = self.fetch("/api/book/1.epub")
             self.assertEqual(rsp.code, 403)
+            rsp = self.fetch("/api/book/1.epub?mode=read")
+            self.assertEqual(rsp.code, 403)
 
             user.set_permission("s")  # allow
             rsp = self.fetch("/api/book/1.epub")
             self.assertEqual(rsp.code, 200)
+            rsp = self.fetch("/api/book/1.epub?mode=read", headers={"Range": "bytes=0-0"})
+            self.assertEqual(rsp.code, 206)
 
     def mock_convert(self):
         class MockConvertPath:

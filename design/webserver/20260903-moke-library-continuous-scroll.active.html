@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Moke 书库连续滚动与排序方案</title>
+  <style>
+    :root { color-scheme: light; --ink: #17202a; --muted: #5d6874; --line: #cad2da; --accent: #176b5b; --panel: #f5f7f8; }
+    * { box-sizing: border-box; }
+    body { margin: 0; color: var(--ink); background: #fff; font: 16px/1.65 system-ui, sans-serif; }
+    main { width: min(1040px, calc(100% - 32px)); margin: 32px auto 64px; }
+    header { border-bottom: 3px solid var(--accent); padding-bottom: 20px; }
+    h1 { margin: 0 0 8px; font-size: clamp(26px, 4vw, 40px); }
+    h2 { margin-top: 34px; font-size: 22px; }
+    .meta { display: flex; flex-wrap: wrap; gap: 8px 20px; color: var(--muted); }
+    .status { color: #176b5b; font-weight: 700; }
+    .panel { border: 1px solid var(--line); border-radius: 8px; background: var(--panel); padding: 16px 18px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border: 1px solid var(--line); padding: 10px; text-align: left; vertical-align: top; }
+    th { background: var(--panel); }
+    code { background: #eef1f3; padding: 2px 5px; border-radius: 4px; }
+    ul, ol { padding-left: 22px; }
+    @media (max-width: 640px) { main { width: min(100% - 20px, 1040px); margin-top: 18px; } th, td { padding: 8px; } }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Moke 书库连续滚动与排序方案</h1>
+    <div class="meta">
+      <span>创建日期：2026-09-03</span>
+      <span>所属模块：webserver（同时影响 Moke 客户端）</span>
+      <span class="status">状态：ACTIVE</span>
+      <span>需求来源：用户确认的实施计划</span>
+    </div>
+  </header>
+
+  <section>
+    <h2>原始诉求</h2>
+    <div class="panel">
+      在 Moke 的“书库 &gt; 本地”页面增加默认连续滚动、可切换分页，以及按 TaleBook 书号表示的入库顺序进行正序或倒序排列。每批只获取 30 本，减少带宽和服务器负载；完成服务端部署与 Android ARM64 实机验收，源码保持未提交。
+    </div>
+  </section>
+
+  <section>
+    <h2>范围与边界</h2>
+    <ul>
+      <li>仅修改 Moke 本地书库列表，不改变在线书源、书架、搜索和 Cloudflare。</li>
+      <li>连续滚动为默认模式；分页模式保留现有页码、上一页和下一页。</li>
+      <li>偏好写入现有 <code>moke-view-prefs</code>，旧数据缺少字段时使用默认值。</li>
+      <li>不升级 TaleBook 基础镜像，不迁移或删除 <code>/data/talebook</code>。</li>
+      <li>保留现有在线阅读覆盖能力；源码仅上传到独立 <code>codex/</code> 分支，不发布版本或安装包。</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>接口设计</h2>
+    <table>
+      <thead><tr><th>接口</th><th>参数</th><th>行为</th></tr></thead>
+      <tbody>
+        <tr><td><code>GET /api/library</code></td><td><code>start</code>、<code>size=30</code>、<code>order=asc|desc</code></td><td>先按权限与筛选条件得到候选书号，再按数值书号全局排序，最后分页切片。缺省或无效 <code>order</code> 均按 <code>desc</code>。</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>客户端状态与流程</h2>
+    <ol>
+      <li>新增 <code>libraryBrowseMode</code> 和 <code>librarySortOrder</code> 持久化偏好。</li>
+      <li>请求偏移量独立于去重后的显示数量；每次请求最多 30 本。</li>
+      <li>连续模式在书库滚动容器内使用 <code>IntersectionObserver</code>，距离底部约 320px 时提前触发下一批；Android 旧版 WebView 无法形成内部滚动容器时自动回退到页面视口，并沿用同一阈值。</li>
+      <li>同一时刻最多一个列表请求；结果按书号去重，响应为空或偏移达到总数后停止。</li>
+      <li>首次失败沿用空态；追加失败保留现有列表并提供重试。</li>
+      <li>格式、标签、排序、模式、服务器或离线状态变化时使旧响应失效，清空批次、回到顶部并清除批量选择。</li>
+      <li>离线列表在设备端按数值书号排序后再切片和追加。</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>服务端实现</h2>
+    <ul>
+      <li>修复标签、格式等筛选使用集合交集后破坏全局顺序的问题。</li>
+      <li>在分页切片前按请求方向排序完整 ID 列表，并保证返回页内顺序一致。</li>
+      <li>扩展固定摘要校验的在线阅读覆盖脚本，在原覆盖之上增加书库排序补丁。</li>
+      <li>部署前备份 Compose、镜像 ID 与容器配置；健康检查或回归失败时恢复原 Compose 和镜像。</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>测试矩阵</h2>
+    <table>
+      <thead><tr><th>层级</th><th>验证项</th><th>当前结果</th></tr></thead>
+      <tbody>
+        <tr><td>TaleBook</td><td>默认/显式倒序、正序、无效参数回退、相邻页连续性、标签和格式筛选顺序</td><td>通过：线上 204 本；默认与无效参数均倒序；正序第 1/2 批为 1-30、31-60；EPUB 和标签筛选保持指定顺序。</td></tr>
+        <tr><td>Moke 单元测试</td><td>参数、追加去重、结束判断、偏好兼容、离线排序与切片</td><td>通过：完整测试 432/432；连续滚动专项 5/5。</td></tr>
+        <tr><td>Moke 构建</td><td><code>pnpm lint</code>、<code>pnpm typecheck</code>、<code>pnpm test</code>、<code>pnpm build</code></td><td>通过：类型检查无错误；Lint 0 错误、22 个既有警告；主应用、Reader、Android Rust 与 Gradle 均构建成功。</td></tr>
+        <tr><td>界面</td><td>手机/桌面连续加载、分页恢复、排序覆盖全库、错误重试、无重叠与墨水屏可读</td><td>通过：Playwright 已覆盖桌面和手机控件、分页、持久化与追加错误；Android 实机截图无重叠。</td></tr>
+        <tr><td>部署</td><td>固定基础摘要、健康检查、接口排序、在线阅读回归、回滚资料</td><td>通过：自定义镜像健康；在线 HEAD/128 字节 Range 正常，下载计数保持不变；回滚资料存在。</td></tr>
+        <tr><td>Android</td><td>签名 ARM64 APK、覆盖安装模拟器、偏好持久化、请求次数</td><td>通过：覆盖安装成功；顶部静置不预取；接近底部只请求一批；强制关闭重开后仍保持正序与分页。</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>部署与产物记录</h2>
+    <table>
+      <tbody>
+        <tr><th>运行镜像</th><td><code>talebook/moke-library-scroll:20260903-141000</code></td></tr>
+        <tr><th>镜像 ID</th><td><code>sha256:861d0a182f66f52815889ae1db1cb8f3ef336c9231590d04ba709f9a08ea7a3f</code></td></tr>
+        <tr><th>运行状态</th><td><code>running / healthy</code></td></tr>
+        <tr><th>回滚目录</th><td><code>/app/talebook/rollbacks/20260903T141212Z-library-scroll</code></td></tr>
+        <tr><th>Android APK</th><td>Locally validated; the package is not included in the source repository.</td></tr>
+        <tr><th>APK 大小</th><td><code>51,886,779 bytes</code></td></tr>
+        <tr><th>APK SHA-256</th><td><code>5C905D075E892099A04B7986475E3F6C0D445138BFA69D08E13644CE27B8F33C</code></td></tr>
+        <tr><th>APK 签名</th><td>APK Signature Scheme v2、v3 均通过；证书 SHA-256 为 <code>436a7112057ae31c35ba0c7ac83c188637b5dddba6de5022d4883ae7c7dd57bc</code>。</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>Android 网络证据</h2>
+    <ul>
+      <li>连续模式顶部静置 15 秒后仍只有首批 <code>start=0&amp;size=30&amp;order=desc</code>，没有自动请求后续批次。</li>
+      <li>实际向下滚动并进入底部前 320px 区域时，单次请求 <code>start=30&amp;size=30&amp;order=desc</code>；随后静置 15 秒没有出现 <code>start=60</code>。</li>
+      <li>切换正序后请求 <code>start=0&amp;size=30&amp;order=asc</code>；分页第 2 页请求 <code>start=30&amp;size=30&amp;order=asc</code>。</li>
+      <li>强制停止并重新启动应用后，界面仍显示“正序（最早入库）”和“分页”，证明 <code>moke-view-prefs</code> 持久化生效。</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>交付与回滚</h2>
+    <p>已基于固定基础镜像构建唯一自定义镜像，仅替换 TaleBook 应用容器并通过健康检查。若后续发现回归，可使用上述回滚目录恢复 Compose 与原固定镜像。Cloudflare 配置和 <code>/data/talebook</code> 均未改动。</p>
+  </section>
+</main>
+</body>
+</html>
