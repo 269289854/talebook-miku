@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content="Talebook 内部方案：JSON 响应 gzip 压缩与元数据写回后刷新下载 ETag 缓存。" />
     <link rel="icon" href="data:," />
-    <title>JSON 响应 gzip 压缩与下载 ETag 刷新 · WIP</title>
+    <title>JSON 响应 gzip 压缩与下载 ETag 刷新 · ACTIVE</title>
     <style>
       :root {
         color-scheme: light;
@@ -179,7 +179,7 @@
         <h1>开启 JSON 响应 gzip 压缩并在元数据写回后刷新下载 ETag</h1>
         <p class="sub">为弱网客户端优化 Tornado JSON 接口传输体积，并修复元数据写入书籍文件后旧 ETag 缓存未清理导致的文件传输与断点续传隐患。</p>
         <div class="chips" aria-label="方案元信息">
-          <span class="chip wip">状态：WIP</span>
+          <span class="chip active">状态：ACTIVE</span>
           <span class="chip">创建日期：2026-10-12</span>
           <span class="chip">所属模块：webserver</span>
           <span class="chip">影响范围：Tornado HTTP 传输与下载缓存</span>
@@ -192,6 +192,7 @@
           <section id="request" class="card">
             <h2>1. 原始诉求</h2>
             <div class="callout warn">“为弱网客户端（Moke 桌面/移动端）做两项后端小修，只改代码，不涉及部署：1. JSON 压缩：现在 Tornado 没有开启响应压缩，nginx 的 gzip on; 只压缩 text/html，所以 /api/* 的 JSON 全部未压缩传输；2. 下载 ETag 刷新：save_book_meta 会原地改写 EPUB/AZW3/PDF 文件，但没有清缓存，导致之后一直返回旧 ETag。”</div>
+            <p>2026-10-12 后续授权：拉取最新 TaleBook/Moke 并保留本地设备认证功能，基于当前健康镜像构建最小覆盖镜像并部署；用户随后授权将相关修复提交到两个仓库 main，不发布版本或修改私有内容的 Cloudflare 缓存配置。</p>
             <p>在移动网络或高延迟场景下，Talebook 的 <code>/api/*</code> JSON 响应（包含书籍列表、搜索结果等大文本数据）未经压缩传输，显著增加了数据传输量与首屏等待时间。同时，当通过管理或编辑界面将书籍元数据同步写回书籍文件（EPUB、AZW3、PDF）后，<code>StaticFileHandler</code> 进程内 ETag 缓存未失效，导致客户端下载可能命中过期的 304，或在 Range 断点续传时拼接新旧切片造成文件损毁。</p>
           </section>
 
@@ -298,7 +299,7 @@ if success_formats:
               </article>
               <article class="choice">
                 <h3>保持不变</h3>
-                <p>Nginx 配置、Dockerfile、前端代码、书籍下载路由、OPDS、RSS 与非 JSON 请求保持原样传输，不改变任何对外业务契约。</p>
+                <p>Nginx 配置、原生产 Dockerfile、前端代码、书籍下载路由、OPDS、RSS 与非 JSON 请求保持原样传输。新增独立覆盖 Dockerfile 与精确注入脚本，不替换已部署的认证和书籍处理器。</p>
               </article>
             </div>
 
@@ -310,12 +311,12 @@ if success_formats:
             <div class="callout danger">
               <strong>主要风险与缓解：</strong>
               <ul>
-                <li><strong>CPU 开销：</strong>动态 gzip 压缩会消耗微量 CPU。缓解：Tornado 内部自带 <code>MIN_LENGTH = 1400</code> 限制，短 JSON 跳过压缩；且大 JSON 压缩节省的带宽与耗时远超微秒级计算开销。</li>
+                <li><strong>CPU 开销：</strong>动态 gzip 压缩增加计算开销，未进行负载基准测试。缓解：保留 Tornado 最小长度限制，短 JSON 跳过压缩，仅处理需要压缩的 JSON。</li>
                 <li><strong>二进制与 Range 损坏风险：</strong>若错误压缩了下载流或切片流会导致续传错位。缓解：覆盖 <code>_compressible_type</code> 严格限制仅 <code>application/json</code>，并在 <code>transform_first_chunk</code> 中对 206 和 Content-Range 主动解除压缩。</li>
                 <li><strong>ETag 缓存全局失效：</strong><code>StaticFileHandler.reset()</code> 清空进程内所有静态文件 ETag 缓存。缓解：清空仅导致后续首次请求重新计算文件哈希，属于无副作用的常规安全恢复机制。</li>
               </ul>
             </div>
-            <div class="callout"><strong>回滚方式：</strong>移除 <code>webserver/main.py</code> 中 <code>transforms</code> 参数并恢复 <code>save_book_meta</code> 即可瞬间回滚，不涉及任何持久化数据迁移。</div>
+            <div class="callout"><strong>回滚方式：</strong>部署工具在切换失败时恢复备份 Compose 与旧固定镜像并等待健康检查。生产数据目录保持原位；本次未触发生产回滚。隔离 Calibre 回归验证了覆盖发布的数据回滚。</div>
           </section>
 
           <section id="tests" class="card">
@@ -328,13 +329,13 @@ if success_formats:
                     <td>单元测试</td>
                     <td><code>pytest tests/test_http_compress.py -v</code></td>
                     <td>JSON 压缩/不压缩、非 JSON 忽略、Range 206 不压缩、ETag 304 均正确</td>
-                    <td>通过（5/5，2026-10-12，Windows + Python 3.11.15 + Tornado 6.5，无 Calibre 的独立虚拟环境）</td>
+                    <td>通过（5/5）；2026-10-12 在生产候选镜像派生的独立测试镜像再次通过</td>
                   </tr>
                   <tr>
                     <td>单元测试</td>
                     <td><code>pytest tests/test_save_meta_etag_reset.py -v</code></td>
                     <td>Mock 隔离 Calibre 下 <code>save_book_meta</code> 成功调用 reset，失败不调用</td>
-                    <td>通过（2/2，同上环境）</td>
+                    <td>通过（3/3）；补充同路径文件改写后真实 ETag 变化验证。与压缩测试合计 8/8</td>
                   </tr>
                   <tr>
                     <td>代码格式与检查</td>
@@ -346,18 +347,24 @@ if success_formats:
                     <td>设计文档门禁</td>
                     <td><code>python scripts/check_design_docs.py</code></td>
                     <td>文档路径、HTML 单文件结构与元数据校验通过</td>
-                    <td>结构校验通过；仅报告 WIP 合并门禁（预期，转 ACTIVE 后消除）</td>
+                    <td>本方案路径、结构及内嵌资源通过；全库门禁仍有独立设备认证 WIP，不能宣称全库通过</td>
                   </tr>
                   <tr>
-                    <td>全栈集成测试</td>
-                    <td><code>make pytest</code>（Calibre / Docker 环境）</td>
-                    <td>全量后端回归测试全部通过</td>
-                    <td class="pending">未执行：本机无 Calibre 与 Docker，需在 CI 或 Docker 测试镜像中运行</td>
+                    <td>隔离集成回归</td>
+                    <td><code>check_device_auth_overlay.py</code>、<code>check_publication_http.py</code>、<code>check_publication_calibre.py</code>、<code>check_online_reading_regression.py</code></td>
+                    <td>认证、真实 Calibre 覆盖/幂等/回滚和在线阅读兼容</td>
+                    <td class="verified">全部通过；测试容器不挂载生产目录，pytest 依赖仅在测试镜像 /opt/testdeps</td>
+                  </tr>
+                  <tr>
+                    <td>生产验收</td>
+                    <td>公网密码登录、书库 JSON gzip/304、书号 448 HEAD/Range、正倒序前 60 本、进度和覆盖能力</td>
+                    <td>449 本保持，HEAD 200、Range 206，二进制不压缩，在线请求不增加下载次数</td>
+                    <td class="verified">通过；五次在线 Range 下载计数不变，Nginx/Xray/备份定时器与邻接服务健康</td>
                   </tr>
                 </tbody>
               </table>
             </div>
-            <div class="callout warn"><strong>WIP 阶段说明：</strong>新增测试、ruff 与方案结构校验已在本地通过；全量 <code>make pytest</code> 因环境限制未执行。主要风险是全量集成测试中依赖响应原始字节的用例可能受 JSON gzip 影响（Tornado 测试客户端默认会自动解压，预计不受影响）。全量回归通过后再转为 ACTIVE。</div>
+            <div class="callout warn"><strong>验证范围：</strong>全量 <code>make pytest</code> 未执行，本机没有完整 Calibre/Docker 后端环境；使用独立候选测试镜像运行本次相关的 8 项 pytest 及现有真实 Calibre/HTTP/认证/在线阅读回归作为替代验证。生产没有修改书籍元数据来测试 ETag，相关写回验证只在隔离环境执行。剩余风险为未覆盖的全量后端用例及高并发压缩负载。</div>
           </section>
 
           <section id="decisions" class="card">
@@ -365,12 +372,15 @@ if success_formats:
             <ol>
               <li><strong>2026-10-12：</strong>确认仅压缩 <code>application/json</code>，排查排除 TXT、EPUB 及其他媒体流，彻底杜绝破坏客户端断点续传字节偏移的风险。</li>
               <li><strong>2026-10-12：</strong><code>save_book_meta</code> 在原地改写书籍成功后，沿用 <code>webserver/handlers/publication.py:71</code> 的模式调用 <code>web.StaticFileHandler.reset()</code> 清理 ETag 缓存。</li>
+              <li><strong>部署边界：</strong>基于生产镜像 ID <code>sha256:02088705e332694c0aa20d86745e47e17d22e7787f8df2110075feb9fe6718a2</code> 构建最小覆盖镜像。部署前六个关键源码 SHA-256 必须一致，保留设备认证、在线阅读、排序与覆盖发布；不覆盖完整新版后端。</li>
+              <li><strong>隔离验证：</strong>pytest 仅安装到独立测试镜像，测试容器不挂载生产目录。无 TaleBook 页面变化，接口字段保持兼容，豁免服务端界面审查；Moke 布局另用 Playwright 和模拟器验收。</li>
+              <li><strong>2026-10-12 已部署：</strong><code>talebook-miku:json-gzip-20261012t124205z</code>，镜像 ID <code>sha256:871c879dccda54fe3436bd54c4d77a6504c95a28662babc26adb507c12e64f06</code>。一致性备份 <code>/data/talebook-backups/20261012T124418Z</code>，部署记录 <code>/app/talebook/releases/json-gzip-20261012T124205Z/</code>；实际验收通过后转 ACTIVE。</li>
             </ol>
           </section>
         </main>
       </div>
 
-      <footer>Talebook internal design · webserver · WIP · 2026-10-12</footer>
+      <footer>Talebook internal design · webserver · ACTIVE · 2026-10-12</footer>
     </div>
     <script>
       (() => {

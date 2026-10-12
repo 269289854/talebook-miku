@@ -10,9 +10,15 @@ import tornado.escape
 from tornado import web
 
 from webserver import demo_mode, loader, utils
+from webserver.device_api_keys import (
+    DeviceApiKeyLimitError,
+    authenticate_api_key,
+    issue_api_key,
+    serialize_api_key,
+)
 from webserver.handlers.base import BaseHandler, auth, js
 from webserver.i18n import _
-from webserver.models import Device, Message, Reader
+from webserver.models import Device, Message, Reader, ReaderApiKey
 from webserver.plugins import captcha as captcha_module
 from webserver.plugins.push.base import PUSH_CAPABILITY
 from webserver.services.mail import MailService
@@ -264,6 +270,9 @@ class UserActive(SignUp):
 
 
 class SignIn(BaseHandler):
+    def should_be_invited(self):
+        pass
+
     @js
     def post(self):
         # 检查人机验证
@@ -293,7 +302,107 @@ class SignIn(BaseHandler):
             user.save()
             logging.info("User (id=%d, username=%s) has been migrated from SHA256 to bcrypt", user.id, user.username)
 
+        remember_device = self.get_argument("remember_device", "").strip().lower() in ("1", "true", "yes", "on")
+        api_key = None
+        api_key_info = None
+        if remember_device:
+            try:
+                issued_key, api_key = issue_api_key(
+                    self.session,
+                    user.id,
+                    self.get_argument("device_id", ""),
+                    self.get_argument("device_name", ""),
+                )
+                api_key_info = serialize_api_key(issued_key)
+            except ValueError:
+                return {"err": "params.device.invalid", "msg": _("设备信息无效")}
+            except DeviceApiKeyLimitError:
+                return {"err": "api_key.limit", "msg": _("设备密钥数量已达上限")}
+
+        self.mark_invited()
         self.login_user(user)
+        rsp = {"err": "ok", "msg": "ok"}
+        if api_key:
+            rsp["api_key"] = api_key
+            rsp["api_key_info"] = api_key_info
+        return rsp
+
+
+class ApiKeySignIn(BaseHandler):
+    def should_be_invited(self):
+        pass
+
+    @js
+    def post(self):
+        authorization = self.request.headers.get("Authorization", "")
+        if not authorization.startswith("Bearer "):
+            return {"err": "api_key.invalid", "msg": _("设备密钥无效或已吊销")}
+
+        api_key = authenticate_api_key(self.session, authorization[7:].strip())
+        if not api_key:
+            return {"err": "api_key.invalid", "msg": _("设备密钥无效或已吊销")}
+
+        user = self.session.get(Reader, api_key.reader_id)
+        if not user or not demo_mode.can_login(CONF, user) or not user.can_login():
+            return {"err": "api_key.invalid", "msg": _("设备密钥无效或已吊销")}
+
+        api_key.last_used_at = datetime.datetime.now()
+        self.mark_invited()
+        self.login_user(user)
+        self.session.commit()
+        return {"err": "ok", "msg": "ok", "api_key_info": serialize_api_key(api_key)}
+
+
+class UserApiKeys(BaseHandler):
+    @js
+    @auth
+    def get(self):
+        api_keys = (
+            self.session.query(ReaderApiKey)
+            .filter(ReaderApiKey.reader_id == self.user_id(), ReaderApiKey.revoked_at.is_(None))
+            .order_by(ReaderApiKey.created_at.desc())
+            .all()
+        )
+        return {"err": "ok", "api_keys": [serialize_api_key(api_key) for api_key in api_keys]}
+
+    @js
+    @auth
+    def post(self):
+        password = self.get_argument("password", "").strip()
+        if not password or self.current_user.get_secure_password(password) != self.current_user.password:
+            return {"err": "params.password.error", "msg": _("当前密码错误")}
+
+        try:
+            api_key, token = issue_api_key(
+                self.session,
+                self.current_user.id,
+                self.get_argument("device_id", ""),
+                self.get_argument("device_name", ""),
+            )
+        except ValueError:
+            return {"err": "params.device.invalid", "msg": _("设备信息无效")}
+        except DeviceApiKeyLimitError:
+            return {"err": "api_key.limit", "msg": _("设备密钥数量已达上限")}
+        return {"err": "ok", "msg": "ok", "api_key": token, "api_key_info": serialize_api_key(api_key)}
+
+
+class UserApiKeyItem(BaseHandler):
+    @js
+    @auth
+    def delete(self, api_key_id):
+        api_key = (
+            self.session.query(ReaderApiKey)
+            .filter(
+                ReaderApiKey.id == int(api_key_id),
+                ReaderApiKey.reader_id == self.user_id(),
+                ReaderApiKey.revoked_at.is_(None),
+            )
+            .first()
+        )
+        if not api_key:
+            return {"err": "api_key.not_found", "msg": _("设备密钥不存在")}
+        api_key.revoked_at = datetime.datetime.now()
+        self.session.commit()
         return {"err": "ok", "msg": "ok"}
 
 
@@ -532,11 +641,12 @@ class Welcome(BaseHandler):
 
     @js
     def get(self):
+        auth_capabilities = {"password_login": True, "device_api_key": True}
         if not self.need_invited():
-            return {"err": "free", "msg": _("无需访问码")}
+            return {"err": "free", "msg": _("无需访问码"), "auth": auth_capabilities}
         if self.invited_code_is_ok():
-            return {"err": "free", "msg": _("已输入访问码")}
-        return {"err": "ok", "msg": "", "welcome": CONF["INVITE_MESSAGE"]}
+            return {"err": "free", "msg": _("已输入访问码"), "auth": auth_capabilities}
+        return {"err": "ok", "msg": "", "welcome": CONF["INVITE_MESSAGE"], "auth": auth_capabilities}
 
     @js
     def post(self):
@@ -623,6 +733,9 @@ def routes():
         (r"/api/user/info", UserInfo),
         (r"/api/user/messages", UserMessages),
         (r"/api/user/sign_in", SignIn),
+        (r"/api/user/api_key/sign_in", ApiKeySignIn),
+        (r"/api/user/api_keys", UserApiKeys),
+        (r"/api/user/api_keys/([0-9]+)", UserApiKeyItem),
         (r"/api/user/sign_up", SignUp),
         (r"/api/user/sign_out", SignOut),
         (r"/api/user/update", UserUpdate),

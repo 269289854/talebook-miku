@@ -4,11 +4,12 @@ import os
 import sys
 import tempfile
 import types
-from types import SimpleNamespace
 import unittest
+from types import SimpleNamespace
 from unittest import mock
 
 from tornado import web
+
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -58,7 +59,7 @@ class SaveMetaEtagResetTest(unittest.TestCase):
 
         with (
             mock.patch.dict(sys.modules, mock_modules),
-            mock.patch("webserver.handlers.base.is_external_index_format", return_value=False),
+            mock.patch("webserver.handlers.base.is_external_index_format", return_value=False, create=True),
             mock.patch.object(web.StaticFileHandler, "reset") as mock_reset,
         ):
             res = BaseHandler.save_book_meta(self.fake_handler, 1)
@@ -81,13 +82,32 @@ class SaveMetaEtagResetTest(unittest.TestCase):
 
         with (
             mock.patch.dict(sys.modules, mock_modules),
-            mock.patch("webserver.handlers.base.is_external_index_format", return_value=False),
+            mock.patch("webserver.handlers.base.is_external_index_format", return_value=False, create=True),
             mock.patch.object(web.StaticFileHandler, "reset") as mock_reset,
         ):
             res = BaseHandler.save_book_meta(self.fake_handler, 1)
 
             self.assertEqual(res.get("err"), "save.failed")
             mock_reset.assert_not_called()
+
+    def test_real_etag_changes_after_metadata_write(self):
+        before = web.StaticFileHandler.get_content_version(self.epub_file)
+        module = types.ModuleType("calibre.ebooks.metadata.meta")
+
+        def write_metadata(stream, metadata, stream_type):
+            stream.seek(0)
+            stream.write(b"updated epub metadata")
+            stream.truncate()
+
+        module.set_metadata = write_metadata
+        with (
+            mock.patch.dict(sys.modules, {"calibre.ebooks.metadata.meta": module}),
+            mock.patch("webserver.handlers.base.is_external_index_format", return_value=False, create=True),
+        ):
+            result = BaseHandler.save_book_meta(self.fake_handler, 1)
+        self.assertEqual(result["err"], "ok")
+        after = web.StaticFileHandler.get_content_version(self.epub_file)
+        self.assertNotEqual(before, after)
 
 
 if __name__ == "__main__":

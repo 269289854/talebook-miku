@@ -10,7 +10,20 @@ import time
 
 import bcrypt
 from social_sqlalchemy.storage import JSONType, SQLAlchemyMixin
-from sqlalchemy import BigInteger, Boolean, Column, Date, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import (
+    BigInteger,
+    Boolean,
+    Column,
+    Date,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.ext.mutable import Mutable
 from sqlalchemy.orm import declarative_base, object_session, relationship
 
@@ -292,6 +305,29 @@ class Reader(Base, SQLAlchemyMixin):
 
     def is_admin(self):
         return self.admin
+
+
+class ReaderApiKey(Base, SQLAlchemyMixin):
+    __tablename__ = "reader_api_keys"
+
+    id = Column(Integer, primary_key=True)
+    reader_id = Column(Integer, ForeignKey("readers.id", ondelete="CASCADE"), nullable=False)
+    device_id = Column(String(200), nullable=False)
+    name = Column(String(200), default="", nullable=False)
+    prefix = Column(String(32), nullable=False)
+    token_hash = Column(String(64), nullable=False, unique=True)
+    purpose = Column(String(32), default="device_login", nullable=False)
+    created_at = Column(DateTime, default=datetime.datetime.now, nullable=False)
+    last_used_at = Column(DateTime)
+    expires_at = Column(DateTime)
+    revoked_at = Column(DateTime)
+
+    reader = relationship(Reader, backref="api_keys")
+
+    __table_args__ = (
+        Index("ix_reader_api_keys_reader_active", "reader_id", "revoked_at"),
+        Index("ix_reader_api_keys_prefix", "prefix"),
+    )
 
 
 class Message(Base, SQLAlchemyMixin):

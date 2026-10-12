@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Moke 密码直登与设备 API Key 的 TaleBook 服务端方案。" />
+    <link rel="icon" href="data:," />
+    <title>Moke 密码直登与设备 API Key · ACTIVE</title>
+    <style>
+      :root { color-scheme: light; --ink:#18212f; --muted:#586577; --line:#d7dee8; --panel:#fff; --accent:#176b5b; --soft:#e9f5f1; --warn:#fff4d6; }
+      * { box-sizing:border-box; }
+      body { margin:0; color:var(--ink); background:#f4f6f9; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif; line-height:1.65; }
+      main { width:min(1040px,calc(100vw - 28px)); margin:24px auto 56px; }
+      header,section { margin-bottom:16px; padding:24px 28px; background:var(--panel); border:1px solid var(--line); border-radius:16px; }
+      h1 { margin:0 0 8px; font-size:clamp(28px,4vw,44px); line-height:1.18; letter-spacing:0; }
+      h2 { margin:0 0 12px; font-size:21px; }
+      h3 { margin:18px 0 8px; font-size:16px; }
+      p,li,td,th { font-size:14px; }
+      p { margin:0 0 10px; }
+      ul,ol { margin:8px 0 0 20px; padding:0; }
+      li+li { margin-top:5px; }
+      code { padding:2px 5px; background:#eef1f5; border-radius:4px; overflow-wrap:anywhere; }
+      .meta { display:flex; flex-wrap:wrap; gap:8px; margin-top:16px; }
+      .meta span { padding:5px 9px; color:var(--muted); background:#eef1f5; border-radius:999px; font-size:12px; font-weight:700; }
+      .meta .status { color:#176b5b; background:var(--soft); }
+      .callout { padding:13px 15px; background:var(--soft); border-left:4px solid var(--accent); }
+      .flow { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; }
+      .flow div { padding:13px; border:1px solid var(--line); border-radius:10px; }
+      .flow b { display:block; margin-bottom:5px; }
+      .table { overflow-x:auto; border:1px solid var(--line); border-radius:10px; }
+      table { width:100%; min-width:720px; border-collapse:collapse; }
+      th,td { padding:10px; border-right:1px solid var(--line); border-bottom:1px solid var(--line); text-align:left; vertical-align:top; }
+      th { background:#f3f5f8; }
+      tr:last-child td { border-bottom:0; }
+      th:last-child,td:last-child { border-right:0; }
+      .pending { color:#8a5a00; font-weight:700; }
+      @media(max-width:700px){ main{margin-top:10px;width:calc(100vw - 18px)} header,section{padding:19px 17px;border-radius:12px}.flow{grid-template-columns:1fr} }
+      @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+      @media print{body{background:#fff}main{width:100%;margin:0}header,section{break-inside:avoid}}
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>Moke 密码直登与设备 API Key</h1>
+        <p>让已有 TaleBook 账号绕过访客访问码直接登录，并用可吊销的设备密钥恢复短期 Cookie 会话，同时保持现有书籍权限边界。</p>
+        <div class="meta" aria-label="方案元信息">
+          <span class="status">状态：ACTIVE</span><span>创建日期：2026-09-13</span><span>所属模块：webserver</span><span>影响范围：认证、数据库迁移、Moke 客户端</span><span>需求来源：用户确认的实施计划</span>
+        </div>
+      </header>
+
+      <section id="request">
+        <h2>1. 原始诉求</h2>
+        <div class="callout">已有账号应直接使用用户名和密码登录，不要求先输入访问码；增加长期有效、可随时吊销的设备 API Key，用于自动恢复登录 Cookie。API Key 只能换取会话，不能直接访问书籍、管理或下载接口。</div>
+      </section>
+
+      <section id="goals">
+        <h2>2. 目标与边界</h2>
+        <ul>
+          <li>访问码只服务匿名访客，密码登录与设备密钥登录均不受访问码前置拦截。</li>
+          <li>保留验证码、演示模式、账号启用状态、密码和权限检查。</li>
+          <li>原始密钥只返回一次；服务端只保存 SHA-256 哈希与可展示前缀。</li>
+          <li>Bearer 密钥只在 <code>/api/user/api_key/sign_in</code> 验证，不扩展全局认证。</li>
+          <li>不修改 Cloudflare 私有内容缓存规则，不迁移或删除 TaleBook 数据目录。</li>
+        </ul>
+      </section>
+
+      <section id="design">
+        <h2>3. 接口与流程</h2>
+        <div class="flow" aria-label="设备密钥会话恢复流程">
+          <div><b>1. 密码登录</b>校验验证码、账号与密码，写入登录和访问 Cookie。</div>
+          <div><b>2. 记住设备</b>吊销同账号同设备旧密钥，生成一次性返回的新密钥。</div>
+          <div><b>3. 安全保存</b>Moke 将密钥写入系统安全存储，不进入 URL、缓存或日志。</div>
+          <div><b>4. 会话恢复</b>Cookie 失效后只向专用端点提交 Bearer 密钥并换取新 Cookie。</div>
+        </div>
+        <h3>接口</h3>
+        <div class="table"><table><thead><tr><th>接口</th><th>认证</th><th>行为</th></tr></thead><tbody>
+          <tr><td><code>GET /api/welcome</code></td><td>公开</td><td>附加密码直登和设备密钥能力标记。</td></tr>
+          <tr><td><code>POST /api/user/sign_in</code></td><td>账号密码</td><td>绕过访问码；可按设备创建或轮换密钥。</td></tr>
+          <tr><td><code>POST /api/user/api_key/sign_in</code></td><td>Bearer 设备密钥</td><td>仅换取 Cookie，会更新最后使用时间。</td></tr>
+          <tr><td><code>GET /api/user/api_keys</code></td><td>Cookie</td><td>仅返回本人密钥元数据。</td></tr>
+          <tr><td><code>POST /api/user/api_keys</code></td><td>Cookie + 当前密码</td><td>手动创建或轮换设备密钥，原始值只返回一次。</td></tr>
+          <tr><td><code>DELETE /api/user/api_keys/{id}</code></td><td>Cookie</td><td>仅吊销本人密钥。</td></tr>
+        </tbody></table></div>
+        <h3>数据模型</h3>
+        <p><code>reader_api_keys</code> 保存账号、设备 ID、名称、前缀、SHA-256 哈希、用途、创建时间、最后使用时间、可选过期时间和吊销时间。每账号最多 10 个有效密钥；同设备创建时先吊销旧密钥。</p>
+      </section>
+
+      <section id="security">
+        <h2>4. 安全与兼容性</h2>
+        <ul>
+          <li>密钥格式为 <code>moke_tk1_&lt;prefix&gt;_&lt;secret&gt;</code>，随机值来自操作系统加密随机源。</li>
+          <li>先按前缀查找候选，再用常量时间比较哈希；响应、普通请求日志和异常日志均不包含完整密钥。</li>
+          <li>旧数据库启动迁移会创建完整新表；创建失败时启动检查失败并停止部署。</li>
+          <li>旧客户端不传新字段时沿用原登录响应；旧服务器能力缺失时 Moke 不展示设备密钥功能。</li>
+        </ul>
+      </section>
+
+      <section id="tests">
+        <h2>5. 测试结果</h2>
+        <p>2026-10-12 至 13 日：服务端部署、相关测试、界面审查和最终签名通用 APK 的雷电覆盖安装验收完成。用户追加授权将相关修复提交到两个自有仓库的 main。</p>
+        <ul>
+          <li>独立候选测试镜像：<code>pytest tests/test_device_api_keys.py -q</code> 通过 10/10，覆盖密码直登、验证码/错误密码、只存哈希、轮换、数量限制、会话交换、Bearer 非通用认证、跨账号隔离/吊销和旧库建表。测试目录独立，不挂载生产数据。</li>
+          <li>覆盖镜像构建烟测：<code>python3 scripts/check_device_auth_overlay.py /var/www/talebook</code> 通过；模型、认证、迁移与 handler 编译检查通过。旧库建表验证完整约束和索引创建路径。</li>
+          <li>生产站点：密码绕过访问码登录、设备密钥换取 Cookie、普通接口不接受 Bearer、吊销后密钥失效均通过。书号 448 EPUB HEAD 200、Range 206、普通下载、进度与覆盖发布接口正常；重复在线 Range 未增加下载计数，书库仍为 449 本。</li>
+          <li>客户端：<code>pnpm lint</code> 0 错误、22 条既有警告，<code>pnpm typecheck</code> 通过；<code>pnpm test</code> 为 520/521。唯一失败是当前 Windows 工具链缺失 <code>open-harmony-schema.json</code>，没有手写或伪造生成 schema。本次认证、会话上下文、缓存失效、下载恢复和 ACL 契约用例通过。</li>
+          <li>Reader：直接来源、认证 Range、分块缓存/版本失效、启动与进度桥接相关 6 组 Vitest，38/38 通过。Root 与 Reader 前端构建通过；最终 <code>pnpm tauri android build --target aarch64 i686 --apk</code> 返回 0，生成一个包含 arm64-v8a 与 x86 的通用包，版本 1.1.3、versionCode 1001003。</li>
+          <li>签名与对齐：沿用本机原证书，证书 SHA-256 为 <code>436a7112057ae31c35ba0c7ac83c188637b5dddba6de5022d4883ae7c7dd57bc</code>；APK v2/v3 签名验证通过，<code>zipalign -c -P 16 4</code> 通过。ARM64 ELF LOAD 对齐为 0x4000；x86 ELF 为 0x1000，不宣称 x86 ELF 16KB 对齐。</li>
+          <li>最终交付包 <code>moke-1.1.3-universal-20261012.apk</code> 的 SHA-256：<code>4beab3c8f963c32cf1d65d4ceed8568515ae73a17f5830b7e491d0c24ae3aa8b</code>。实际以 <code>adb -s emulator-5556 install --abi x86 -r</code> 覆盖安装该文件，保留应用数据。雷电默认选中 ARM64 转译时会与其 32 位 WebView 冲突，因此验收显式选择包内 x86，未卸载或更换 WebView。</li>
+          <li>设备认证：前一候选包将本次站点三项 Cookie 置为过期，恢复端点实际只调用 1 次并恢复账号。最终包安装前再次仅过期这三项 Cookie，并吊销本次模拟器密钥；最终包从安全存储加载该密钥，仅调用 1 次恢复后进入登录页，没有循环。随后密码直登、记住设备和生成新设备密钥成功，应用最终保持已登录状态。</li>
+          <li>最终包书号 448：按服务端 ID 和下载记录核对书籍身份，确认旧下载索引可恢复。为验证在线路径，仅临时改名这一份下载文件并在 finally 中恢复，恢复前后 SHA-256 相同；实际在线 HEAD 200、6 个 Range GET 206，页面渲染为 1 / 531，累计分块小于 2,165,142 字节整本大小。恢复文件后主按钮显示“阅读”，实际本地打开亦渲染 1 / 531，原生 BACK 返回详情正常。验收只保留正文外的进度截图，不展示出版物正文。</li>
+          <li>最终包缓存与书库：连续滚动从 30 追加到 60 / 449，正序可选，完成后恢复默认倒序。缓存清理前为阅读分块 980KB、图片/页面 1.6MB，确认清理后两类与总占用均为 0B；紧邻清理前后 1 个下载文件和 3 个 Reader 数据文件哈希不变。重新加载书库后，临时仅阻断 Moke UID 的 TCP 443，既有列表仍显示 30 / 449；专用测试规则在 finally 中移除。未把清理后的重新填充错误计为清理失败。</li>
+          <li>浏览器真实 API 回归：手机 390×844、桌面和墨水屏的详情、设置、连续滚动和排序通过；距离列表底部 250px 触发第二批 30 本且只产生 1 个请求。新增认证交互另以隔离 mock 自测：320px 登录页/弹窗、空态、错误重试、Tab 焦点隔离、Escape 关闭与焦点恢复通过；不把 mock 结果作为生产认证验收。</li>
+        </ul>
+        <h3>interface-review full 本地审查</h3>
+        <p>审查目标为两个仓库当前 <code>main</code> 相对实时 <code>origin/main</code> 的全部分支与未提交功能变更。Moke 基线 <code>f87a32a5147a6738713f8b91ec3af410d1900fed</code>，TaleBook 基线 <code>6d8fe636576953ace6228849b6f0720937f0c382</code>；两者领先提交数均为 0。Moke 纳入 43 项功能文件，其中 15 个由真实 Tauri 构建生成的权限 TOML 由契约用例独立验证，界面审查覆盖其余 28 项；TaleBook 覆盖认证、模型、覆盖脚本、测试与方案。排除锁文件、图标、输出 APK/截图/日志、供应商生成文件及无关 AGENTS 改动。</p>
+        <p>使用本项目 <code>.agents/skills/interface-review/SKILL.md</code> 和 <code>better-interface</code> 的 full 模式，依次完成 Accessibility、Layout、Writing、Typography、Colors、UI 六个领域。核对新增与删除行及登录、访问码、详情、设置、ServerProvider；请求与缓存消费者扩展至书架、书库、下载、个人面板和连接页，其他消费者未逐页扩大审查。没有样式 token 或共享控件修改。</p>
+        <div class="table"><table><thead><tr><th>领域</th><th>证据与处理</th><th>结论</th></tr></thead><tbody>
+          <tr><td>Accessibility</td><td>新增设备密钥字段标签未关联、弹窗未隔离焦点、方式切换的 tab 语义未实现键盘模式。关联所有新字段；使用原生 dialog 与原生切换按钮；实际 Tab、Escape、焦点恢复回归通过。</td><td>Introduced HIGH 已修复，复审无残留。</td></tr>
+          <tr><td>Layout</td><td>320px 与桌面弹窗边界和页面横向溢出检查，长设备名称保留完整 title，元数据允许换行。</td><td>无本次引入的阻塞项。</td></tr>
+          <tr><td>Writing</td><td>列表失败先前误显示空态，补充错误与重试。创建、复制、吊销和不保存密码的文案与现有术语一致。</td><td>Introduced MEDIUM 已修复。</td></tr>
+          <tr><td>Typography</td><td>新增输入移动端实际 16px；标签与说明使用现有字号。真实 iOS Safari 自动缩放未验证。</td><td>已验证范围无阻塞项。</td></tr>
+          <tr><td>Colors</td><td>沿用现有语义色，墨水屏弹窗复用 eink-bordered：实测纯白背景、黑色标题，21:1；状态和吊销均有文字/图标提示。整体既有主题 token 未改动。</td><td>无本次引入的阻塞项。</td></tr>
+          <tr><td>UI</td><td>沿用 Tailwind、Lucide 和现有布局密度；加载、禁用、空态、错误态、窄屏和墨水屏已检查，没有新增自动播放或独立动效。</td><td>无本次引入的阻塞项。</td></tr>
+        </tbody></table></div>
+        <p><strong>Considered but Rejected：</strong>未把现有玻璃卡片整体重做为另一套主题，避免无关外观改造；未隐藏密钥的创建/最近使用信息来压缩窄屏布局，改用换行；未把验证码改为客户端静默放行，保留原验证交互。访问码原有输入仅用 placeholder 命名属于 Pre-existing，本次没有删除或弱化它的标签，不纳入变更判定。</p>
+        <p><strong>Verification：</strong><code>git fetch origin main</code>（仅写 .git，远端基线未变）、<code>git symbolic-ref --quiet --short refs/remotes/origin/HEAD</code>（均 origin/main）、<code>git rev-list --count origin/main..HEAD</code>（均 0）、<code>git diff --name-status HEAD</code>、<code>git ls-files --others --exclude-standard</code> 及完整 diff 双侧检查；没有为审查切换、重置或 stash 工作区。Playwright 会话 auth-review 的截图与隔离交互结果保留在本机 output 下，已关闭浏览器与临时服务。模拟器真实认证验收独立记录，不替代浏览器键盘检查。</p>
+        <p><strong>Verdict：</strong>Approve。审查覆盖范围内没有残留 Introduced/Regression 的 HIGH、MEDIUM 或 LOW 问题。实际屏幕阅读器、iOS/macOS 真机和 200% 浏览器原生缩放均标记 Not verified，不宣称这些环境已验收。</p>
+        <p><strong>验证限制：</strong>未运行全量服务端 <code>make pytest</code>，替代为隔离候选镜像中本次认证 10 项、gzip/ETag 8 项和现有真实 Calibre/HTTP/在线阅读/覆盖发布回归。本机全量 <code>ruff check webserver --no-cache</code> 与 <code>ruff format --diff webserver --no-cache</code> 通过。Android 真 ARM64 手机尚未测试，雷电只验证同一通用包的 x86 路径；成功 Cookie 静默续期沿用前候选包真实证据，最终包额外实测吊销失效回退。本次相关 69 项客户端用例通过。旧注释接口返回 404 的服务器兼容性限制仍保留，不宣称完整旧接口笔记同步已通过。</p>
+      </section>
+
+      <section id="decisions">
+        <h2>6. 决策记录</h2>
+        <ul>
+          <li>2026-09-13：密钥长期有效直到吊销，且只用于换取 Cookie 会话。</li>
+          <li>2026-09-13：密码登录默认记住设备；同账号同设备重新登录会轮换密钥。</li>
+          <li>2026-09-13：鸿蒙当前没有可靠系统密钥链，只支持会话内 API Key，不长期保存。</li>
+          <li>2026-09-13：TaleBook 不新增管理 Web UI，设备管理界面由 Moke 提供。</li>
+          <li>2026-10-12：合并实时 main，并保留弱网缓存/超时/并发合并；认证请求最多恢复一次，写请求不套通用网络重试。恢复绑定请求开始的服务器及账号对象，切换账号、同账号重新登录、服务器改变后拒绝迟到结果。</li>
+          <li>2026-10-12：补齐 Moke 原生下载及缓存命令的显式 ACL；恢复升级前已存在文件的原生下载索引，只检查文件元数据，不重新读取或哈希整本书；Reader 出口忽略残留原生按键拦截标志。</li>
+          <li>2026-10-12：用户追加授权将本次相关修复提交到两个 GitHub 仓库的 main；安装包、测试输出、密钥、无关图标和供应商生成改动不提交，不创建版本标签或 Release。</li>
+        </ul>
+      </section>
+    </main>
+  </body>
+</html>
