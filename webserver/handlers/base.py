@@ -552,6 +552,8 @@ class BaseHandler(web.RequestHandler):
                     failed_formats.append(f.upper())
 
             if success_formats:
+                # 同路径原地改写必须丢弃旧 ETag 缓存。
+                web.StaticFileHandler.reset()
                 msg = _("成功将元数据同步到文件：%s") % ", ".join(success_formats)
                 if failed_formats:
                     msg += _("；失败：%s") % ", ".join(failed_formats)

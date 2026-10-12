@@ -1,0 +1,414 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Talebook 内部方案：JSON 响应 gzip 压缩与元数据写回后刷新下载 ETag 缓存。" />
+    <link rel="icon" href="data:," />
+    <title>JSON 响应 gzip 压缩与下载 ETag 刷新 · WIP</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f6f7fb;
+        --panel: #ffffff;
+        --ink: #1f2937;
+        --muted: #5a6475;
+        --line: #d7dfeb;
+        --accent: #df6d16;
+        --accent-soft: #fff3e7;
+        --blue-soft: #eef5ff;
+        --green: #1f7a53;
+        --green-soft: #e7f5ee;
+        --warn-soft: #fff8eb;
+        --red: #a43d3d;
+        --red-soft: #fdecec;
+        --shadow: 0 12px 30px rgba(15, 23, 42, .08);
+        --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+        --mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      }
+
+      * { box-sizing: border-box; }
+      html { scroll-behavior: smooth; }
+      body {
+        margin: 0;
+        color: var(--ink);
+        background: radial-gradient(circle at top right, rgba(223, 109, 22, .10), transparent 25%), linear-gradient(180deg, #fbfcff 0%, var(--bg) 100%);
+        font-family: var(--sans);
+        line-height: 1.68;
+      }
+      a { color: #315f91; text-underline-offset: 3px; }
+      a:focus-visible, [tabindex="0"]:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+      code, .mono { font-family: var(--mono); font-size: .9em; }
+      code { padding: .1em .34em; border-radius: 4px; background: #f0f3f8; overflow-wrap: anywhere; }
+      .skip-link { position: fixed; z-index: 20; top: 8px; left: 8px; padding: 8px 12px; color: #fff; background: var(--ink); transform: translateY(-160%); }
+      .skip-link:focus { transform: translateY(0); }
+
+      .page { width: min(1160px, calc(100vw - 32px)); margin: 0 auto; padding: 24px 0 56px; }
+      .hero, .card { background: var(--panel); border: 1px solid rgba(215, 223, 235, .95); border-radius: 20px; box-shadow: var(--shadow); }
+      .hero { position: relative; margin-bottom: 18px; padding: 32px 34px; overflow: hidden; }
+      .hero::after { position: absolute; right: -46px; bottom: -56px; width: 240px; height: 240px; background: radial-gradient(circle, rgba(223, 109, 22, .18), rgba(223, 109, 22, 0)); content: ""; pointer-events: none; }
+      h1 { position: relative; z-index: 1; max-width: 1060px; margin: 0 0 10px; font-size: clamp(28px, 3.6vw, 44px); line-height: 1.15; letter-spacing: -.025em; }
+      .sub { position: relative; z-index: 1; max-width: 1060px; margin: 0; color: var(--muted); font-size: 16px; }
+      .chips { position: relative; z-index: 1; display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
+      .chip { display: inline-flex; align-items: center; min-height: 32px; padding: 5px 11px; border-radius: 999px; color: #536176; background: #eef2f7; font-size: 12px; font-weight: 700; }
+      .chip.wip { color: #9a4d0c; background: var(--accent-soft); }
+      .chip.active { color: var(--green); background: var(--green-soft); }
+      .chip.superseded { color: var(--red); background: var(--red-soft); }
+
+      .content-grid { display: block; }
+      .main-column { min-width: 0; }
+      .card { margin-bottom: 18px; padding: 26px 28px; scroll-margin-top: 18px; }
+      .card:last-child { margin-bottom: 0; }
+      h2 { margin: 0 0 15px; font-size: 22px; line-height: 1.25; }
+      h3 { margin: 22px 0 10px; font-size: 17px; line-height: 1.35; }
+      p { margin: 0 0 13px; }
+      p, li { color: #283548; font-size: 14px; }
+      ul, ol { margin: 10px 0 0 20px; padding: 0; }
+      li + li { margin-top: 6px; }
+
+      .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+      .choice { padding: 17px; border: 1px solid var(--line); border-radius: 16px; background: #fff; }
+      .choice h3 { margin-top: 0; }
+      .choice.recommended { border-color: #efbe8c; background: linear-gradient(180deg, #fffaf5 0%, #fff 100%); }
+      .callout { margin-top: 14px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 14px; background: #f8fafc; }
+      .callout.warn { border-color: #f0d7a8; background: var(--warn-soft); }
+      .callout.good { border-color: #bddcc4; background: var(--green-soft); }
+      .callout.danger { border-color: #e3b0b0; background: var(--red-soft); }
+      .callout p:last-child, .choice p:last-child { margin-bottom: 0; }
+
+      .flow { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 14px; }
+      .step { position: relative; min-height: 132px; padding: 16px; border: 1px solid var(--line); border-radius: 16px; background: linear-gradient(180deg, #fff 0%, #fafbfd 100%); }
+      .step + .step::before { position: absolute; top: 18px; left: -17px; display: grid; place-items: center; width: 23px; height: 23px; color: var(--accent); background: #fff; border: 1px solid #efbe8c; border-radius: 50%; content: "→"; font-weight: 800; }
+      .step b { display: block; margin-bottom: 6px; font-size: 14px; }
+      .step p { margin: 0; color: var(--muted); font-size: 13px; }
+      .label { display: block; margin-bottom: 7px; color: var(--accent); font: 800 10px/1.3 var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+
+      .table-wrap { margin-top: 14px; overflow-x: auto; border: 1px solid var(--line); border-radius: 14px; }
+      table { width: 100%; min-width: 680px; border-collapse: collapse; background: #fff; font-size: 13px; }
+      th, td { padding: 11px 12px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+      th { color: #556376; background: #f8fafc; font-size: 12px; }
+      th:last-child, td:last-child { border-right: 0; }
+      tr:last-child td { border-bottom: 0; }
+
+      pre { margin: 14px 0 0; padding: 15px 17px; overflow-x: auto; color: #eef3f8; background: #263244; border-radius: 14px; font: 13px/1.65 var(--mono); }
+      pre code { padding: 0; color: inherit; background: transparent; font: inherit; white-space: pre; }
+      .pending { color: #9a5c09; font-weight: 800; }
+      .verified { color: var(--green); font-weight: 800; }
+
+      .toc-edge { display: none; }
+      .toc-edge a { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 3px; align-items: center; width: 100%; min-height: 36px; padding: 6px 5px; color: #69778a; border-radius: 9px; text-decoration: none; }
+      .toc-edge a:hover { color: var(--accent); background: var(--accent-soft); }
+      .rail-index { font: 800 10px/1 var(--mono); text-align: center; }
+      .rail-title { min-width: 0; overflow: hidden; font-size: 12px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+      .toc-edge a[aria-current="location"] { color: #fff; background: #9a4d0c; box-shadow: 0 5px 14px rgba(154, 77, 12, .25); }
+
+      .toc-fab { position: fixed; z-index: 18; right: 18px; bottom: 18px; }
+      .toc-fab summary { display: flex; min-height: 46px; align-items: center; gap: 8px; padding: 10px 14px; color: #fff; background: #263244; border-radius: 999px; box-shadow: 0 10px 28px rgba(15, 23, 42, .22); cursor: pointer; font-size: 12px; font-weight: 800; list-style: none; }
+      .toc-fab summary::-webkit-details-marker { display: none; }
+      .toc-fab summary::before { color: #ffad6c; content: "≡"; font-size: 17px; line-height: 1; }
+      .toc-fab[open] summary { background: var(--accent); }
+      .toc-fab nav { position: absolute; right: 0; bottom: 56px; width: min(310px, calc(100vw - 36px)); padding: 10px; background: #fff; border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 16px 42px rgba(15, 23, 42, .20); }
+      .toc-fab strong { display: block; padding: 7px 9px 10px; color: var(--muted); font-size: 11px; letter-spacing: .05em; text-transform: uppercase; }
+      .toc-fab a { display: block; padding: 9px 10px; color: #536176; border-radius: 9px; text-decoration: none; font-size: 13px; }
+      .toc-fab a:hover { background: var(--accent-soft); }
+      .toc-fab a[aria-current="location"] { color: #9a4d0c; background: var(--accent-soft); font-weight: 800; }
+      footer { margin-top: 16px; color: var(--muted); font-size: 12px; text-align: center; }
+
+      @media (min-width: 1440px) {
+        .toc-edge { position: fixed; z-index: 18; top: 50%; right: max(4px, calc((100vw - 1160px) / 2 - 136px)); display: flex; flex-direction: column; gap: 3px; width: 124px; padding: 8px; background: rgba(255, 255, 255, .96); border: 1px solid rgba(215, 223, 235, .98); border-radius: 16px; box-shadow: 0 10px 28px rgba(15, 23, 42, .13); transform: translateY(-50%); }
+        .toc-fab { display: none; }
+      }
+      @media (max-width: 720px) {
+        .page { width: calc(100vw - 20px); padding-top: 10px; }
+        .hero, .card { border-radius: 16px; }
+        .hero { padding: 24px 20px; }
+        h1 { font-size: clamp(24px, 7vw, 36px); }
+        .sub { font-size: 15px; }
+        .card { padding: 21px 19px; }
+        .grid, .flow { grid-template-columns: 1fr; }
+        .step { min-height: 0; }
+        .step + .step::before { top: -17px; left: 17px; transform: rotate(90deg); }
+        .toc-fab { right: 10px; bottom: 10px; }
+      }
+      @media (max-width: 440px) {
+        .chip { width: fit-content; }
+      }
+      @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+      @page { margin: 14mm; }
+      @media print {
+        body { background: #fff; }
+        .page { width: 100%; padding: 0; }
+        .hero, .card { box-shadow: none; }
+        .content-grid { display: block; }
+        .toc-edge, .toc-fab, .skip-link { display: none; }
+        h1, h2, h3 { break-after: avoid; }
+        .choice, .callout, .step, .table-wrap, pre { break-inside: avoid; }
+        a { color: inherit; }
+      }
+    </style>
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">跳到正文</a>
+
+    <nav class="toc-edge" aria-label="章节目录">
+      <a href="#request" aria-current="location"><span class="rail-index">01</span><span class="rail-title">原始诉求</span></a>
+      <a href="#goals"><span class="rail-index">02</span><span class="rail-title">目标与边界</span></a>
+      <a href="#evidence"><span class="rail-index">03</span><span class="rail-title">现状与证据</span></a>
+      <a href="#design"><span class="rail-index">04</span><span class="rail-title">方案</span></a>
+      <a href="#impact"><span class="rail-index">05</span><span class="rail-title">影响与风险</span></a>
+      <a href="#tests"><span class="rail-index">06</span><span class="rail-title">测试结果</span></a>
+      <a href="#decisions"><span class="rail-index">07</span><span class="rail-title">决策记录</span></a>
+    </nav>
+
+    <details class="toc-fab">
+      <summary>目录</summary>
+      <nav aria-label="章节目录">
+        <strong>跳到章节</strong>
+        <a href="#request" aria-current="location">原始诉求</a>
+        <a href="#goals">目标与边界</a>
+        <a href="#evidence">现状与证据</a>
+        <a href="#design">方案</a>
+        <a href="#impact">影响与风险</a>
+        <a href="#tests">测试结果</a>
+        <a href="#decisions">决策记录</a>
+      </nav>
+    </details>
+
+    <div class="page">
+      <header class="hero">
+        <h1>开启 JSON 响应 gzip 压缩并在元数据写回后刷新下载 ETag</h1>
+        <p class="sub">为弱网客户端优化 Tornado JSON 接口传输体积，并修复元数据写入书籍文件后旧 ETag 缓存未清理导致的文件传输与断点续传隐患。</p>
+        <div class="chips" aria-label="方案元信息">
+          <span class="chip wip">状态：WIP</span>
+          <span class="chip">创建日期：2026-10-12</span>
+          <span class="chip">所属模块：webserver</span>
+          <span class="chip">影响范围：Tornado HTTP 传输与下载缓存</span>
+          <span class="chip">需求来源：Moke 客户端弱网优化</span>
+        </div>
+      </header>
+
+      <div class="content-grid">
+        <main id="main-content" class="main-column">
+          <section id="request" class="card">
+            <h2>1. 原始诉求</h2>
+            <div class="callout warn">“为弱网客户端（Moke 桌面/移动端）做两项后端小修，只改代码，不涉及部署：1. JSON 压缩：现在 Tornado 没有开启响应压缩，nginx 的 gzip on; 只压缩 text/html，所以 /api/* 的 JSON 全部未压缩传输；2. 下载 ETag 刷新：save_book_meta 会原地改写 EPUB/AZW3/PDF 文件，但没有清缓存，导致之后一直返回旧 ETag。”</div>
+            <p>在移动网络或高延迟场景下，Talebook 的 <code>/api/*</code> JSON 响应（包含书籍列表、搜索结果等大文本数据）未经压缩传输，显著增加了数据传输量与首屏等待时间。同时，当通过管理或编辑界面将书籍元数据同步写回书籍文件（EPUB、AZW3、PDF）后，<code>StaticFileHandler</code> 进程内 ETag 缓存未失效，导致客户端下载可能命中过期的 304，或在 Range 断点续传时拼接新旧切片造成文件损毁。</p>
+          </section>
+
+          <section id="goals" class="card">
+            <h2>2. 目标与边界</h2>
+            <div class="grid">
+              <article class="choice recommended">
+                <h3>目标</h3>
+                <ul>
+                  <li>实现 <code>JsonGZipContentEncoding</code>，在 Tornado 应用层对 <code>application/json</code> 响应且客户端携带 <code>Accept-Encoding: gzip</code> 时启用 gzip 压缩。</li>
+                  <li>严格排除书籍二进制文件、纯文本（TXT）、图片及 Range 分片请求（206 Partial Content / 含 Content-Range），避免破坏断点续传字节偏移。</li>
+                  <li>在 <code>save_book_meta</code> 成功写回任一格式后调用 <code>web.StaticFileHandler.reset()</code> 清理旧 ETag 缓存。</li>
+                  <li>提供无 Calibre 依赖的单元测试，覆盖 JSON 压缩、非 JSON 排除、Range 请求保护、ETag 304 与元数据写回 ETag 重置。</li>
+                </ul>
+              </article>
+              <article class="choice">
+                <h3>非目标</h3>
+                <ul>
+                  <li>不修改 nginx 生产配置文件或反向代理设置。</li>
+                  <li>不变更现有 API 数据格式、请求参数或响应 JSON 字段。</li>
+                  <li>不修改前端 <code>app/</code> 代码（纯后端传输层优化）。</li>
+                  <li>不修改外部电子书文件的存储路径与归档机制。</li>
+                </ul>
+              </article>
+            </div>
+          </section>
+
+          <section id="evidence" class="card">
+            <h2>3. 现状、根因与证据</h2>
+            <div class="table-wrap" role="region" aria-label="现状证据" tabindex="0">
+              <table>
+                <thead><tr><th>观察</th><th>权威证据</th><th>结论</th></tr></thead>
+                <tbody>
+                  <tr>
+                    <td><code>/api/*</code> 接口返回大 JSON 时体积未压缩</td>
+                    <td><code>webserver/main.py:297</code> 创建 <code>web.Application</code> 时未配置 <code>transforms</code>，Tornado 默认不启用输出变换；Nginx 反向代理层仅对 <code>text/html</code> 开启 gzip</td>
+                    <td>应在 Tornado 应用层显式注册自定义压缩变换，仅处理 <code>application/json</code></td>
+                  </tr>
+                  <tr>
+                    <td>书籍元数据更新后客户端下载可能返回过期 304 或续传损坏</td>
+                    <td><code>webserver/handlers/base.py:546</code> 使用 <code>open(file_path, "rb+")</code> 原地写回文件，但未调用 <code>StaticFileHandler.reset()</code>；而 <code>webserver/handlers/publication.py:71</code> 已有重置处理</td>
+                    <td>原地文件改写后旧 ETag 残留，导致基于文件路径的静态缓存与实际文件内容不一致</td>
+                  </tr>
+                  <tr>
+                    <td>断点续传（Range 请求）如果被压缩会导致偏移计算错误</td>
+                    <td>RFC 9110 规范与 Range 协议：Range 响应必须针对原始内容字节范围（Content-Range），gzip 变换会改变传输字节流</td>
+                    <td>变换层检测到 206 状态码或 <code>Content-Range</code> 响应头时必须立即禁用 gzip</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section id="design" class="card">
+            <h2>4. 方案</h2>
+            <div class="callout good"><strong>方案结论：</strong>在 <code>webserver/http_compress.py</code> 封装 <code>JsonGZipContentEncoding</code>，继承 Tornado <code>GZipContentEncoding</code>，限制仅对 <code>application/json</code> 压缩，并对 206 / Range 响应放行；在 <code>webserver/main.py</code> 的 <code>web.Application</code> 构造中注入该 transform；在 <code>webserver/handlers/base.py:save_book_meta</code> 成功写回格式后调用 <code>web.StaticFileHandler.reset()</code>。</div>
+
+            <div class="flow" aria-label="核心处理流程">
+              <article class="step">
+                <span class="label">Step 1</span>
+                <b>请求过滤</b>
+                <p>客户端带 <code>Accept-Encoding: gzip</code> 请求 Tornado 接口</p>
+              </article>
+              <article class="step">
+                <span class="label">Step 2</span>
+                <b>变换分流</b>
+                <p>仅 <code>application/json</code> 且非 206 / Content-Range 时开启 gzip 压缩</p>
+              </article>
+              <article class="step">
+                <span class="label">Step 3</span>
+                <b>缓存一致</b>
+                <p>书籍元数据改写成功后主动重置 <code>StaticFileHandler</code> ETag 缓存</p>
+              </article>
+            </div>
+
+            <h3>关键代码设计</h3>
+            <pre aria-label="核心实现"><code># webserver/http_compress.py
+class JsonGZipContentEncoding(GZipContentEncoding):
+    CONTENT_TYPES = {"application/json"}
+
+    def _compressible_type(self, ctype: str) -> bool:
+        if not ctype:
+            return False
+        return ctype.split(";")[0].strip().lower() == "application/json"
+
+    def transform_first_chunk(self, status_code, headers, chunk, finishing):
+        if status_code == 206 or "Content-Range" in headers:
+            self._gzipping = False
+        return super().transform_first_chunk(status_code, headers, chunk, finishing)
+
+# webserver/handlers/base.py: save_book_meta
+if success_formats:
+    # 同路径原地改写必须丢弃旧 ETag 缓存。
+    web.StaticFileHandler.reset()
+    msg = _("成功将元数据同步到文件：%s") % ", ".join(success_formats)</code></pre>
+          </section>
+
+          <section id="impact" class="card">
+            <h2>5. 影响范围、无界面影响与风险</h2>
+            <div class="grid">
+              <article class="choice recommended">
+                <h3>影响范围</h3>
+                <p>仅限 Tornado HTTP 输出变换层（<code>JsonGZipContentEncoding</code>）与书籍元数据持久化写回（<code>save_book_meta</code>）。上游 Nginx 或 Cloudflare 会自动透传带有 <code>Content-Encoding: gzip</code> 的响应。</p>
+              </article>
+              <article class="choice">
+                <h3>保持不变</h3>
+                <p>Nginx 配置、Dockerfile、前端代码、书籍下载路由、OPDS、RSS 与非 JSON 请求保持原样传输，不改变任何对外业务契约。</p>
+              </article>
+            </div>
+
+            <div class="callout good">
+              <strong>无界面影响判断依据：</strong>
+              本改动为纯后端 HTTP 传输层与静态文件缓存重置，不涉及任何前端页面、Vue 组件、DOM 结构、样式布局、文案或 API JSON 返回数据结构的变更。客户端（包括 Web 浏览器与第三方客户端）在 HTTP 协议层透明解码 gzip，用户可感知体验仅为加载耗时减少；元数据保存操作的用户反馈文案保持完全一致。依据 <code>AGENTS.md</code> 规范，该纯后端改动豁免 <code>interface-review</code> 审查。
+            </div>
+
+            <div class="callout danger">
+              <strong>主要风险与缓解：</strong>
+              <ul>
+                <li><strong>CPU 开销：</strong>动态 gzip 压缩会消耗微量 CPU。缓解：Tornado 内部自带 <code>MIN_LENGTH = 1400</code> 限制，短 JSON 跳过压缩；且大 JSON 压缩节省的带宽与耗时远超微秒级计算开销。</li>
+                <li><strong>二进制与 Range 损坏风险：</strong>若错误压缩了下载流或切片流会导致续传错位。缓解：覆盖 <code>_compressible_type</code> 严格限制仅 <code>application/json</code>，并在 <code>transform_first_chunk</code> 中对 206 和 Content-Range 主动解除压缩。</li>
+                <li><strong>ETag 缓存全局失效：</strong><code>StaticFileHandler.reset()</code> 清空进程内所有静态文件 ETag 缓存。缓解：清空仅导致后续首次请求重新计算文件哈希，属于无副作用的常规安全恢复机制。</li>
+              </ul>
+            </div>
+            <div class="callout"><strong>回滚方式：</strong>移除 <code>webserver/main.py</code> 中 <code>transforms</code> 参数并恢复 <code>save_book_meta</code> 即可瞬间回滚，不涉及任何持久化数据迁移。</div>
+          </section>
+
+          <section id="tests" class="card">
+            <h2>6. 测试计划与结果</h2>
+            <div class="table-wrap" role="region" aria-label="测试计划与结果" tabindex="0">
+              <table>
+                <thead><tr><th>验证层</th><th>实际命令或页面</th><th>预期</th><th>结果</th></tr></thead>
+                <tbody>
+                  <tr>
+                    <td>单元测试</td>
+                    <td><code>pytest tests/test_http_compress.py -v</code></td>
+                    <td>JSON 压缩/不压缩、非 JSON 忽略、Range 206 不压缩、ETag 304 均正确</td>
+                    <td>通过（5/5，2026-10-12，Windows + Python 3.11.15 + Tornado 6.5，无 Calibre 的独立虚拟环境）</td>
+                  </tr>
+                  <tr>
+                    <td>单元测试</td>
+                    <td><code>pytest tests/test_save_meta_etag_reset.py -v</code></td>
+                    <td>Mock 隔离 Calibre 下 <code>save_book_meta</code> 成功调用 reset，失败不调用</td>
+                    <td>通过（2/2，同上环境）</td>
+                  </tr>
+                  <tr>
+                    <td>代码格式与检查</td>
+                    <td><code>ruff check ./webserver --no-cache</code>；<code>ruff format --diff ./webserver --no-cache</code></td>
+                    <td>无 lint 与格式问题</td>
+                    <td>通过（All checks passed；180 files already formatted）</td>
+                  </tr>
+                  <tr>
+                    <td>设计文档门禁</td>
+                    <td><code>python scripts/check_design_docs.py</code></td>
+                    <td>文档路径、HTML 单文件结构与元数据校验通过</td>
+                    <td>结构校验通过；仅报告 WIP 合并门禁（预期，转 ACTIVE 后消除）</td>
+                  </tr>
+                  <tr>
+                    <td>全栈集成测试</td>
+                    <td><code>make pytest</code>（Calibre / Docker 环境）</td>
+                    <td>全量后端回归测试全部通过</td>
+                    <td class="pending">未执行：本机无 Calibre 与 Docker，需在 CI 或 Docker 测试镜像中运行</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="callout warn"><strong>WIP 阶段说明：</strong>新增测试、ruff 与方案结构校验已在本地通过；全量 <code>make pytest</code> 因环境限制未执行。主要风险是全量集成测试中依赖响应原始字节的用例可能受 JSON gzip 影响（Tornado 测试客户端默认会自动解压，预计不受影响）。全量回归通过后再转为 ACTIVE。</div>
+          </section>
+
+          <section id="decisions" class="card">
+            <h2>7. 决策记录</h2>
+            <ol>
+              <li><strong>2026-10-12：</strong>确认仅压缩 <code>application/json</code>，排查排除 TXT、EPUB 及其他媒体流，彻底杜绝破坏客户端断点续传字节偏移的风险。</li>
+              <li><strong>2026-10-12：</strong><code>save_book_meta</code> 在原地改写书籍成功后，沿用 <code>webserver/handlers/publication.py:71</code> 的模式调用 <code>web.StaticFileHandler.reset()</code> 清理 ETag 缓存。</li>
+            </ol>
+          </section>
+        </main>
+      </div>
+
+      <footer>Talebook internal design · webserver · WIP · 2026-10-12</footer>
+    </div>
+    <script>
+      (() => {
+        const sections = [...document.querySelectorAll(".main-column > section[id]")];
+        const tocLinks = [...document.querySelectorAll(".toc-edge a[href^='#'], .toc-fab a[href^='#']")];
+        const floatingToc = document.querySelector(".toc-fab");
+        if (!sections.length || !tocLinks.length) return;
+
+        let ticking = false;
+        const syncCurrentSection = () => {
+          ticking = false;
+          let currentSection = sections[0];
+          for (const section of sections) {
+            if (section.getBoundingClientRect().top <= 84) currentSection = section;
+            else break;
+          }
+          const currentHref = `#${currentSection.id}`;
+          for (const link of tocLinks) {
+            if (link.getAttribute("href") === currentHref) link.setAttribute("aria-current", "location");
+            else link.removeAttribute("aria-current");
+          }
+        };
+        const scheduleCurrentSectionSync = () => {
+          if (ticking) return;
+          ticking = true;
+          requestAnimationFrame(syncCurrentSection);
+        };
+
+        floatingToc?.addEventListener("click", (event) => {
+          if (event.target.closest("a")) floatingToc.open = false;
+        });
+        addEventListener("keydown", (event) => {
+          if (event.key === "Escape" && floatingToc?.open) floatingToc.open = false;
+        });
+        addEventListener("scroll", scheduleCurrentSectionSync, { passive: true });
+        addEventListener("resize", scheduleCurrentSectionSync);
+        syncCurrentSection();
+      })();
+    </script>
+  </body>
+</html>

@@ -49,6 +49,7 @@ def patch_tornado_header_validation():
 
 
 from webserver import handlers, loader, models, social_routes
+from webserver.http_compress import JsonGZipContentEncoding
 from webserver.services import AsyncService
 
 
@@ -296,6 +297,7 @@ def make_app():
     theme_routes = [(r"/static/themes/(.*)", web.StaticFileHandler, {"path": themes_path})]
     app = web.Application(
         theme_routes + social_routes.SOCIAL_AUTH_ROUTES + handlers.routes(),
+        transforms=[JsonGZipContentEncoding],
         **app_settings,
     )
     app._engine = engine
