@@ -44,7 +44,7 @@ def test_application_base_uses_slim_image_without_vim_installation():
     application_base = docker_stage("application-base")
     server = docker_stage("server")
 
-    assert application_base.startswith("FROM talebook/talebook-base:slim-v8.5.0 AS application-base")
+    assert application_base.startswith("FROM ghcr.io/269289854/talebook-base:slim-v8.5.0 AS application-base")
     assert server.startswith("FROM application-base AS server")
     assert not re.search(r"\bvim\b", application_base)
     assert not re.search(r"\bvim\b", server)
@@ -77,7 +77,18 @@ def test_python_wheels_are_built_outside_the_server_stage():
 def test_base_image_source_and_publisher_are_externalized():
     assert not (ROOT / "Dockerfile.base").exists()
     assert not (ROOT / ".github" / "workflows" / "build-base.yml").exists()
-    assert "github.com/talebook/talebook-base" in read("Dockerfile")
+    assert ".github/workflows/mirror-base-image.yml" in read("Dockerfile")
+
+
+def test_base_image_tag_is_mirrored_and_shared_by_dockerfile_and_ci():
+    # 基础镜像由 mirror-base-image.yml 复制到本仓库所有者的 GHCR；
+    # Dockerfile 与 CI 必须使用同一个已同步的 tag，升级时三处一起改。
+    mirror = read(".github/workflows/mirror-base-image.yml")
+    tag = re.search(r"^\s+BASE_IMAGE_TAG:\s*(\S+)\s*$", mirror, re.MULTILINE).group(1)
+
+    assert "SOURCE_IMAGE: docker.io/talebook/talebook-base" in mirror
+    assert f"FROM ghcr.io/269289854/talebook-base:{tag} AS application-base" in read("Dockerfile")
+    assert f"image: ghcr.io/${{{{ github.repository_owner }}}}/talebook-base:{tag}" in read(".github/workflows/ci.yml")
 
 
 def test_test_tools_are_isolated_from_production_requirements():

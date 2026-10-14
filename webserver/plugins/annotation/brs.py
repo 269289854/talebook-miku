@@ -63,7 +63,7 @@ class BRSProvider:
         "config_schema": {
             "type": "object",
             "properties": {
-                "endpoint": {"type": "string", "default": "https://brs.talebook.org"},
+                "endpoint": {"type": "string", "default": ""},
                 "book_map": {"type": "object"},
                 "chapter_map": {"type": "object"},
                 "segment_map": {"type": "object"},
@@ -72,7 +72,7 @@ class BRSProvider:
         "permissions": ["books.read", "plugin_records.write", "network.read", "network.write", "annotations.write"],
         "data_policy": {"stores_full_text": True, "retention": "remote_user_controlled"},
         "compatibility": {"talebook": ">=0.1.0"},
-        "homepage": "https://github.com/talebook/talebook",
+        "homepage": "https://github.com/269289854/talebook-miku",
         "license": "GPL-3.0",
         "ui": {
             "icon": "mdi-comment-text-multiple-outline",

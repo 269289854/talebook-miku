@@ -3,12 +3,12 @@ name: Code Quality Check and Build
 on:
   push:
     branches:
-      - master
+      - main
       - dev
       - dev-*
   pull_request:
     branches:
-      - master
+      - main
 
 jobs:
   check-design:
@@ -24,7 +24,11 @@ jobs:
   test-server:
     runs-on: ubuntu-latest
     container:
-      image: talebook/talebook-base:latest
+      # 与 Dockerfile 使用同一个固定版本，由 mirror-base-image.yml 同步到本仓库所有者的 GHCR。
+      image: ghcr.io/${{ github.repository_owner }}/talebook-base:slim-v8.5.0
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
       options: --user root
 
     steps:

@@ -23,7 +23,7 @@ requests-toolbelt
 
 # Voicebook host protocol v2 and packaged EdgeTTS preview assets.
 # Pin the immutable release tag so production generation cannot drift between builds.
-voicebook-tool @ https://github.com/talebook/voicebook/archive/refs/tags/v0.7.1.tar.gz
+voicebook-tool @ https://github.com/269289854/voicebook/archive/refs/tags/v0.7.1.tar.gz
 
 # WebDAV service (mount the book library over WebDAV)
 WsgiDAV>=4.0.0

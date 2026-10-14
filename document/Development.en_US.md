@@ -92,7 +92,7 @@ mkdir -p /data/books/{library,extract,upload,convert,progress,settings}
 
 ```bash
 cd /var/www/
-git clone https://github.com/talebook/talebook.git
+git clone https://github.com/269289854/talebook-miku.git
 cd talebook
 ```
 

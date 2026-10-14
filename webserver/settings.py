@@ -78,7 +78,7 @@ settings = {
     "UPLOAD_CHUNK_THRESHOLD": "8MB",
     "UPLOAD_CHUNK_SIZE": "4MB",
 
-    "CANDLE_READER_SERVER": "https://brs.talebook.org",
+    "CANDLE_READER_SERVER": "",
     "EPUB_VIEWER": "creader.html",
     "PDF_VIEWER": "/static/pdfjs/web/viewer.html?file=%(pdf_url)s",
 
@@ -127,9 +127,9 @@ settings = {
     'SOCIAL_AUTH_GITHUB_SECRET'        : '',
 
     # See: http://service.mail.qq.com/cgi-bin/help?subtype=1&&no=1001256&&id=28
-    'smtp_server'       : "smtp.talebook.org",
+    'smtp_server'       : "",
     'smtp_encryption'   : "TLS",
-    'smtp_username'     : "sender@talebook.org",
+    'smtp_username'     : "",
     'smtp_password'     : "password",
     'auto_fill_meta'    : False,
     'auto_fill_keep_cover': True,
@@ -171,8 +171,8 @@ settings = {
     'ENABLE_WEBDAV_SERVICE' : True,
     'WEBDAV_SYNC_FOLDER' : False,
     'WEBDAV_SYNC_FOLDER_NAME' : 'reader',
-    'FEEDBACK_URL' : 'https://github.com/talebook/talebook/issues',
-    'HEADER': '欢迎访问！如果你喜欢此项目，请前往 Github <a target="_blank" href="https://github.com/talebook/talebook"> 给 talebook 点击一个Star！</a>',
+    'FEEDBACK_URL' : 'https://github.com/269289854/talebook-miku/issues',
+    'HEADER': '欢迎访问！如果你喜欢此项目，请前往 Github <a target="_blank" href="https://github.com/269289854/talebook-miku"> 给 talebook 点击一个Star！</a>',
     'FOOTER': '本站基于Calibre构建，感谢开源界的力量。所有资源搜集于互联网，如有侵权请邮件联系。',
     'FOOTER_EXTRA_HTML': '',
     'SIDEBAR_EXTRA_HTML': '<img class="ma-auto footer-logo" style="max-width: 130px; height: auto;" src="/logo/link.png">',

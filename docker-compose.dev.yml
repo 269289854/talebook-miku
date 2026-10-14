@@ -11,7 +11,7 @@ services:
       context: .
       dockerfile: Dockerfile
       target: dev
-    image: talebook/talebook:dev
+    image: ghcr.io/269289854/talebook-miku:dev
     restart: always
     volumes:
       - /tmp/talebook-dev:/data

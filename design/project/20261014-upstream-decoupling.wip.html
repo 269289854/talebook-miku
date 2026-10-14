@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>与上游 talebook/talebook 脱钩 · WIP</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #1e293b;
+      --muted: #64748b;
+      --line: #d7dee8;
+      --paper: #f7fafc;
+      --accent: #0f766e;
+      --accent-bg: #e6f5f3;
+      --warn: #9a5b13;
+      --warn-bg: #fff7e8;
+      --code: #edf2f7;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 42px 20px 72px;
+      color: var(--ink);
+      background: var(--paper);
+      font: 16px/1.68 system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    main { max-width: 1000px; margin: 0 auto; }
+    header, section {
+      margin-bottom: 18px;
+      padding: 26px;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+    }
+    h1 { margin: 0 0 12px; font-size: clamp(30px, 5vw, 44px); line-height: 1.16; }
+    h2 { margin: 0 0 14px; font-size: 22px; line-height: 1.3; }
+    h3 { margin: 18px 0 8px; font-size: 17px; }
+    p { margin: 0 0 12px; }
+    p:last-child { margin-bottom: 0; }
+    code { padding: 2px 5px; border-radius: 4px; background: var(--code); font-size: .9em; overflow-wrap: anywhere; }
+    ul { margin: 10px 0 0 22px; padding: 0; }
+    li + li { margin-top: 6px; }
+    table { width: 100%; margin-top: 12px; border-collapse: collapse; background: #fff; }
+    th, td { padding: 11px 12px; border: 1px solid var(--line); text-align: left; vertical-align: top; }
+    th { color: var(--muted); background: #f1f5f9; font-size: 13px; }
+    .meta { display: flex; flex-wrap: wrap; gap: 8px 16px; color: var(--muted); font-size: 13px; }
+    .status { color: var(--warn); font-weight: 800; }
+    .summary { padding: 16px 18px; background: var(--accent-bg); border-left: 4px solid var(--accent); }
+    .warn { padding: 14px 16px; background: var(--warn-bg); border-left: 4px solid var(--warn); }
+    @media (max-width: 680px) {
+      body { padding: 18px 12px 46px; }
+      header, section { padding: 20px; border-radius: 10px; }
+      table { display: block; overflow-x: auto; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>运行、构建、发布与文档全部脱离上游 talebook/talebook</h1>
+    <p class="summary">把版本检查、在线服务默认值、镜像发布、构建依赖、流水线容器和对外链接从上游 <code>talebook/talebook</code> 及原作者账号迁到本仓库所有者 <code>269289854</code> 名下；上游维护的构建产物通过 fork 与镜像复制固定到自己的账号，升级时机由本仓库决定。</p>
+    <div class="meta">
+      <span>创建日期：2026-10-14</span>
+      <span>所属模块：project（影响 webserver、app、docker、.github、文档）</span>
+      <span>状态：<b class="status">WIP</b></span>
+      <span>需求来源：“这个项目也要和上游脱钩，别耦合上游项目。”</span>
+    </div>
+  </header>
+
+  <section>
+    <h2>1. 原始诉求</h2>
+    <div class="warn">“你来改，还有这个项目也要和上游脱钩，别耦合上游项目。”</div>
+    <p>本仓库由上游 Talebook 修改而来，但运行时仍会访问上游服务，构建依赖上游发布的产物，镜像名、流水线容器和界面链接也都指向上游。上游删库、改版或下线服务时，本仓库的构建与用户的服务器都会受影响。</p>
+  </section>
+
+  <section>
+    <h2>2. 目标与边界</h2>
+    <table>
+      <thead><tr><th>类型</th><th>内容</th></tr></thead>
+      <tbody>
+        <tr><td>目标</td><td>用户服务器默认不再连接上游：版本检查查本仓库 Release，阅读同步与邮件默认值留空，由管理员自行配置。</td></tr>
+        <tr><td>目标</td><td>构建只从本仓库所有者的账号拉取依赖：基础镜像、语音库、有声书命令行子模块。</td></tr>
+        <tr><td>目标</td><td>镜像只发布到 <code>ghcr.io/269289854/talebook-miku</code>，部署文件、流水线容器、界面与文档链接全部指向本仓库。</td></tr>
+        <tr><td>目标</td><td>CI 与构建流水线按本仓库默认分支 <code>main</code> 触发；此前按上游的 <code>master</code> 触发，CI 从未运行。</td></tr>
+        <tr><td>非目标</td><td>不改产品名，界面与文档继续叫 Talebook。</td></tr>
+        <tr><td>非目标</td><td>Candle Reader 继续跟踪上游 Release（由独立方案 <code>design/project/20261014-candle-reader-update-permissions.active.html</code> 修复权限）。</td></tr>
+        <tr><td>非目标</td><td>不改写方案文档、调研资料等历史记录；README 中真实的第三方工具与依赖（candle-reader、Agent Skill、DSH 插件）保留原链接。</td></tr>
+        <tr><td>非目标</td><td>不处理 <code>docker/moke-online-reading</code>：它基于上游发布镜像打补丁，可能正用于实际部署，是否删除需仓库所有者决定。</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>3. 现状、根因与证据</h2>
+    <table>
+      <thead><tr><th>类别</th><th>现状</th></tr></thead>
+      <tbody>
+        <tr><td>运行时</td><td><code>update_checker.GITHUB_REPO = "talebook/talebook"</code>；<code>CANDLE_READER_SERVER</code> 与 BRS 插件默认 <code>https://brs.talebook.org</code>；邮件默认 <code>smtp.talebook.org</code> / <code>sender@talebook.org</code>；反馈与首页 Star 链接、插件主页与 User-Agent 指向上游。</td></tr>
+        <tr><td>构建依赖</td><td>Dockerfile 基于 <code>talebook/talebook-base:slim-v8.5.0</code>；<code>voicebook-tool</code> 从 <code>talebook/voicebook</code> 下载；子模块 <code>talebook-audio-cli</code> 位于原作者 <code>hehetoshang</code> 账号。</td></tr>
+        <tr><td>镜像与流水线</td><td>build.yml 同时推 Docker Hub 与 GHCR，但仓库没有 Docker Hub 凭据，构建从首次运行起即失败；ci.yml 在上游镜像 <code>talebook/talebook-base:latest</code> 中测试；codex/claude 流水线使用上游 <code>talebook/talebook:dev</code>；Makefile、compose、Kubernetes 使用 <code>talebook/talebook</code>。</td></tr>
+        <tr><td>触发分支</td><td>ci.yml 与 build.yml 只在 <code>master</code> 触发，本仓库默认分支为 <code>main</code>，CI 没有任何运行记录。</td></tr>
+        <tr><td>链接与文档</td><td>页脚、帮助菜单、管理设置提示、主题模板、README、SECURITY 等指向上游；SECURITY 的漏洞上报邮箱为上游作者邮箱；FUNDING 为上游作者赞助入口。</td></tr>
+      </tbody>
+    </table>
+    <p>阅读器 <code>candle-reader</code> 产物中写死的 <code>https://api.talebook.org</code> 只是未传参时的兜底值；<code>creader.html</code> 初始化时传入 <code>server: window.location.origin</code> ，因此不构成运行时耦合。</p>
+  </section>
+
+  <section>
+    <h2>4. 方案</h2>
+    <h3>关键决策（已与仓库所有者确认）</h3>
+    <table>
+      <thead><tr><th>决策</th><th>选择</th></tr></thead>
+      <tbody>
+        <tr><td>镜像仓库</td><td>只发布到 GHCR，使用自带 <code>GITHUB_TOKEN</code> ，去掉 Docker Hub。</td></tr>
+        <tr><td>上游构建依赖</td><td>fork 代码仓库并复制固定版本的基础镜像到自己的 GHCR，构建只从自己的账号拉取。</td></tr>
+        <tr><td>Candle Reader</td><td>保留跟踪上游，只修权限。</td></tr>
+        <tr><td>在线服务与名称</td><td>默认值清空，保留 Talebook 名称。</td></tr>
+      </tbody>
+    </table>
+    <h3>实施内容</h3>
+    <ul>
+      <li>GitHub 侧：fork <code>talebook/voicebook</code> 与 <code>hehetoshang/talebook-audio-cli</code> 到 <code>269289854</code>；新增 <code>mirror-base-image.yml</code> ，用 <code>docker buildx imagetools create</code> 把 <code>talebook/talebook-base:slim-v8.5.0</code> 连同全部架构复制到 <code>ghcr.io/269289854/talebook-base</code> ；开启 talebook-miku 的私密漏洞报告。</li>
+      <li>构建与部署：Dockerfile、ci.yml 使用同一个已同步的基础镜像 tag；build.yml 只推 GHCR，PR 构建也登录以拉取私有基础镜像；codex/claude 容器改用 <code>ghcr.io/${{ github.repository }}:dev</code> 并补 <code>packages: read</code> 与容器凭据；Makefile、compose、Kubernetes 镜像名改为 <code>ghcr.io/269289854/talebook-miku</code> ；ci.yml 与 build.yml 改按 <code>main</code> 触发。</li>
+      <li>依赖：<code>requirements.txt</code> 改从 fork 下载语音库，<code>.gitmodules</code> 改指 fork。</li>
+      <li>后端：版本检查查本仓库 Release；<code>CANDLE_READER_SERVER</code> 、BRS 插件默认地址、<code>smtp_server</code> 、<code>smtp_username</code> 默认留空；反馈、首页 Star、插件主页、User-Agent 与电子书制作者信息改指本仓库。</li>
+      <li>前端：页脚与帮助菜单链接改指本仓库与 GHCR 包页，删除上游官网链接；管理设置的 Logo 文档链接、客户端下载链接（改为 <code>269289854/moke-miku</code>）与主题模板同步修改。</li>
+      <li>文档与工具：README（中英）、CODE_WIKI、开发与使用文档、SECURITY 改指本仓库；删除上游作者的 FUNDING 与向上游官网提交数据的 <code>tools/update.sh</code> ；产品技能脚本默认仓库改为本仓库。README 注明基于上游修改（GPLv3 要求）。</li>
+      <li>测试：新增 <code>tests/test_upstream_decoupling.py</code> 扫描运行、构建与发布输入，禁止重新出现上游链接、镜像、官网与原作者账号；新增基础镜像 tag 一致性检查；同步更新受影响的流水线、Makefile、插件契约与前端测试。</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>5. 影响范围、风险与回滚</h2>
+    <ul>
+      <li>GHCR 新包默认私有。流水线已配置凭据，可以拉取；但最终用户要拉取 <code>ghcr.io/269289854/talebook-miku</code> 与本地构建使用的基础镜像，需要仓库所有者在包设置中改为公开。</li>
+      <li>codex/claude 流水线依赖 <code>:dev</code> 镜像，在本方案合并、<code>main</code> 首次构建推送 <code>:dev</code> 之前无法拉取。</li>
+      <li>本仓库尚未发布 Release：版本检查会记录 <code>GitHub API error: 404</code> ，帮助菜单“更新日志”打开空页面；发布首个 Release 后恢复正常。</li>
+      <li>已有部署：保存过的设置不受默认值变化影响；只依赖默认值的阅读同步与邮件需由管理员填写地址。上游地址本就无法替代自己的服务，因此不会让原本可用的功能失效。</li>
+      <li>镜像 tag <code>master</code> 改为 <code>main</code> ；此前从未成功发布过镜像，没有用户依赖旧 tag。</li>
+      <li>回滚：还原本方案涉及的提交；GitHub 侧的 fork、GHCR 镜像与私密漏洞报告可保留，不影响回滚。</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>6. 测试计划与结果</h2>
+    <table>
+      <thead><tr><th>验证项</th><th>当前结果</th></tr></thead>
+      <tbody>
+        <tr><td>基础镜像同步（GitHub Actions，run 38504552215）</td><td>通过：<code>ghcr.io/269289854/talebook-base:slim-v8.5.0</code> 包含 linux/amd64、linux/arm64、linux/arm/v7。</td></tr>
+        <tr><td>fork 版本核对</td><td>通过：fork 与上游 <code>v0.7.1</code> 指向同一提交 <code>cd19e48</code> ，两边下载包 SHA256 均为 <code>C023C466…AAA9F</code> ；有声书命令行锁定提交 <code>ba210e8</code> 位于 fork 的 <code>main</code> 分支。</td></tr>
+        <tr><td>本地流水线、Docker 配置与脱钩测试（<code>uv run --no-project --python 3.11 --with pytest==7.4.4 --with pyyaml python -m pytest …</code>）</td><td>待回写最终结果。</td></tr>
+        <tr><td><code>ruff check ./webserver</code> 与 <code>ruff format --diff ./webserver</code></td><td>通过：All checks passed；181 files already formatted。</td></tr>
+        <tr><td>前端 lint 与相关组件测试</td><td>待验证。</td></tr>
+        <tr><td><code>python scripts/check_design_docs.py</code></td><td>待验证。</td></tr>
+        <tr><td>完整后端测试 <code>make pytest</code></td><td>待验证：本机没有 Docker 与 Calibre，依赖 PR 上的 CI（本方案修复触发分支后首次运行）。</td></tr>
+        <tr><td>镜像构建（build.yml，PR 事件 amd64）</td><td>待验证：确认 Dockerfile 能从 GHCR 拉取基础镜像并完成构建。</td></tr>
+        <tr><td><code>act</code> 真实 workflow</td><td>未执行：本机没有 <code>act</code> 、<code>gh act</code> 与可用的 Docker；以 GitHub Actions 真实运行替代，作为合并阻断项。</td></tr>
+        <tr><td>界面审查（interface-review，full）</td><td>待回写。</td></tr>
+        <tr><td>浏览器渲染验证</td><td>未执行：本机没有 Docker，无法按规范启动真实后端；界面改动仅为链接地址与删除一个页脚链接，以组件测试与人工代码审查替代。</td></tr>
+      </tbody>
+    </table>
+  </section>
+</main>
+</body>
+</html>

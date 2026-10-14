@@ -45,7 +45,7 @@
                             <code>{{ origin }}</code>
                         </div>
                         <v-btn
-                            href="https://github.com/talebook/moke/releases"
+                            href="https://github.com/269289854/moke-miku/releases"
                             target="_blank"
                             rel="noopener noreferrer"
                             size="small"

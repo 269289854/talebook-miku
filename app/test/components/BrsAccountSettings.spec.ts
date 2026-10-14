@@ -48,7 +48,7 @@ describe('BrsAccountSettings.vue', () => {
             connections: [],
             plugin: {
                 config_schema: {
-                    properties: { endpoint: { default: 'https://brs.talebook.org' } },
+                    properties: { endpoint: { default: 'https://brs.example.com' } },
                 },
             },
         });
@@ -62,7 +62,7 @@ describe('BrsAccountSettings.vue', () => {
         const wrapper = mountSettings();
         await flushPromises();
 
-        expect((wrapper.vm as unknown as BrsVm).endpoint).toBe('https://brs.talebook.org');
+        expect((wrapper.vm as unknown as BrsVm).endpoint).toBe('https://brs.example.com');
         wrapper.unmount();
     });
 

@@ -55,7 +55,7 @@ If you need to customize these two files, please directly overwrite them with ne
 
 If using docker to start, you need to mount these two directories when starting docker. For example:
 ```
-docker run -d --name talebook -p 80:80 -v /data/calibre:/data -v /data/logo:/var/www/talebook/app/dist/img/ talebook/talebook
+docker run -d --name talebook -p 80:80 -v /data/calibre:/data -v /data/logo:/var/www/talebook/app/dist/img/ ghcr.io/269289854/talebook-miku
 ```
 
 ### Upload File Size

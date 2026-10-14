@@ -19,7 +19,7 @@
                     small
                     variant="text"
                     target="_blank"
-                    href="https://github.com/talebook/talebook"
+                    href="https://github.com/269289854/talebook-miku"
                 >
                     Github
                 </v-btn>
@@ -27,17 +27,9 @@
                     small
                     variant="text"
                     target="_blank"
-                    href="https://hub.docker.com/r/talebook/talebook"
+                    href="https://github.com/269289854/talebook-miku/pkgs/container/talebook-miku"
                 >
                     Docker
-                </v-btn>
-                | <v-btn
-                    small
-                    variant="text"
-                    target="_blank"
-                    href="http://talebook.org"
-                >
-                    Project
                 </v-btn>
             </p>
         </v-col>

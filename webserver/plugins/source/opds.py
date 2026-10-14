@@ -26,7 +26,7 @@ class GenericOPDSProvider(OPDSProvider):
             PLUGIN_ID,
             "Generic OPDS",
             "管理已保存的 OPDS 1/2 目录，并浏览、搜索与批量导入。",
-            "https://github.com/talebook/talebook",
+            "https://github.com/269289854/talebook-miku",
         )
         self.manifest = {
             "protocol_version": PROTOCOL_VERSION,
@@ -45,7 +45,7 @@ class GenericOPDSProvider(OPDSProvider):
             "compatibility": {"talebook": ">=0.1.0"},
             "connection_owners": ["instance"],
             "download_mode": "single_book",
-            "homepage": "https://github.com/talebook/talebook",
+            "homepage": "https://github.com/269289854/talebook-miku",
             "license": "GPL-3.0",
             "ui": {
                 "icon": "mdi-rss-box",

@@ -6,7 +6,7 @@ from webserver.plugins.runtime.safe_http import SafeHttpClient
 
 
 EMPTY_VALUES = (None, "", [], {})
-USER_AGENT = "Talebook plugin connector/1.0 (+https://github.com/talebook/talebook)"
+USER_AGENT = "Talebook plugin connector/1.0 (+https://github.com/269289854/talebook-miku)"
 _CLIENT = SafeHttpClient()
 
 

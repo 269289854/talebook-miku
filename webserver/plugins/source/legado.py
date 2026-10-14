@@ -240,7 +240,7 @@ class LegadoProvider(LegadoSourcePlugin):
                 "compatibility": {"talebook": ">=0.1.0"},
                 "connection_owners": ["instance"],
                 "download_mode": "by_chapters",
-                "homepage": "https://github.com/talebook/talebook",
+                "homepage": "https://github.com/269289854/talebook-miku",
                 "license": "GPL-3.0",
                 "ui": {
                     "icon": "mdi-book-cog-outline",

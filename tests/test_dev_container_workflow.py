@@ -19,59 +19,65 @@ def workflow_step(job, name):
     raise AssertionError(f"workflow step not found: {name}")
 
 
-def test_build_workflow_only_publishes_the_validated_dev_image_from_master():
+def test_build_workflow_only_publishes_the_validated_dev_image_from_main():
     build_workflow = workflow("build.yml")
     build_job = build_workflow["jobs"]["build"]
     step = workflow_step(build_job, "Build development image")
 
     assert step["if"] == (
         "matrix.platform == 'linux/amd64' && "
-        "(github.event_name == 'pull_request' || github.ref == 'refs/heads/master')"
+        "(github.event_name == 'pull_request' || github.ref == 'refs/heads/main')"
     )
     assert step["uses"] == "docker/build-push-action@v5"
     assert step["with"]["target"] == "dev"
     assert step["with"]["platforms"] == "linux/amd64"
     assert step["with"]["push"] == (
-        "${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}"
+        "${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}"
     )
     assert step["with"]["tags"].splitlines() == [
         "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:dev",
-        "${{ env.GHCR_REGISTRY }}/${{ env.IMAGE_NAME }}:dev",
     ]
     assert step["with"]["labels"] == "org.opencontainers.image.revision=${{ github.sha }}"
 
 
-def test_build_workflow_publishes_docker_hub_and_ghcr_from_the_same_build():
+def test_build_workflow_publishes_only_to_the_owner_ghcr():
     build_workflow = workflow("build.yml")
     jobs = build_workflow["jobs"]
     build = jobs["build"]
     merge = jobs["merge"]
 
     assert build_workflow["env"] == {
-        "REGISTRY": "docker.io",
-        "GHCR_REGISTRY": "ghcr.io",
+        "REGISTRY": "ghcr.io",
         "IMAGE_NAME": "${{ github.repository }}",
     }
+    assert build_workflow[True]["push"]["branches"][0] == "main"
+    assert build_workflow[True]["pull_request"]["branches"] == ["main"]
 
     for job in (build, merge):
         login = workflow_step(job, "Log in to GitHub Container Registry")
         assert login["uses"] == "docker/login-action@v3"
+        # PR 构建也要登录，才能拉取 GHCR 中的私有基础镜像。
+        assert "if" not in login
         assert login["with"] == {
-            "registry": "${{ env.GHCR_REGISTRY }}",
+            "registry": "${{ env.REGISTRY }}",
             "username": "${{ github.actor }}",
             "password": "${{ secrets.GITHUB_TOKEN }}",
         }
+        assert all(step.get("name") != "Log in to Docker Hub" for step in job["steps"])
 
     outputs = workflow_step(build, "Set build outputs")
     assert "type=image,name=${REGISTRY}/${IMAGE_NAME}" in outputs["run"]
-    assert "type=image,name=${GHCR_REGISTRY}/${IMAGE_NAME}" in outputs["run"]
-    assert outputs["env"]["GHCR_REGISTRY"] == "${{ env.GHCR_REGISTRY }}"
+    assert "GHCR_REGISTRY" not in outputs["env"]
 
     for name in ("Create SPA manifest", "Create SSR manifest"):
         manifest = workflow_step(merge, name)
-        assert 'for TARGET_REGISTRY in "$REGISTRY" "$GHCR_REGISTRY"' in manifest["run"]
+        assert 'IMAGE="${REGISTRY}/${IMAGE_NAME}"' in manifest["run"]
         assert 'SRCS+=("${IMAGE}@$(cat "$f")")' in manifest["run"]
-        assert manifest["env"]["GHCR_REGISTRY"] == "${{ env.GHCR_REGISTRY }}"
+        assert "TARGET_REGISTRY" not in manifest["run"]
+
+    text = (ROOT / ".github" / "workflows" / "build.yml").read_text(encoding="utf-8")
+    for removed in ("docker.io", "DOCKER_USERNAME", "DOCKER_PASSWORD", "calibre-webserver", "refs/heads/master"):
+        assert removed not in text
 
 
 def test_build_workflow_filters_docker_jobs_to_image_inputs():

@@ -212,7 +212,7 @@ test.describe('Plugin management', () => {
         expect(await page.locator('.brs-page').evaluate(element => element.tagName)).toBe('SECTION');
 
         const endpoint = page.getByRole('textbox', { name: 'BRS 服务器地址' });
-        await expect(endpoint).toHaveValue('https://brs.talebook.org');
+        await expect(endpoint).toHaveValue('');
         await endpoint.fill('https://brs.example');
         await page.getByRole('textbox', { name: '邮箱' }).fill('reader@example.com');
         await page.getByLabel('密码').fill('private-password');

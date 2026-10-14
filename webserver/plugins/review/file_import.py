@@ -102,7 +102,7 @@ class ReviewFileProvider:
         "permissions": ["plugin_records.write"],
         "data_policy": {"stores_full_text": False, "retention": "rating_summary_and_source_link"},
         "compatibility": {"talebook": ">=0.1.0"},
-        "homepage": "https://github.com/talebook/talebook",
+        "homepage": "https://github.com/269289854/talebook-miku",
         "license": "GPL-3.0",
         "ui": {"icon": "mdi-file-delimited-outline", "primary_action": "configure"},
         "connection_owners": ["instance", "user"],

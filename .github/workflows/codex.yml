@@ -15,6 +15,8 @@ on:
 
 permissions:
   contents: read
+  # 从本仓库所有者的 GHCR 拉取 dev 镜像。
+  packages: read
 
 jobs:
   codex:
@@ -63,7 +65,10 @@ jobs:
       )
     runs-on: ubuntu-latest
     container:
-      image: talebook/talebook:dev
+      image: ghcr.io/${{ github.repository }}:dev
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
       options: --user 1001:1001 --cap-drop ALL --security-opt no-new-privileges --tmpfs /data:rw,uid=1001,gid=1001,mode=0755
     defaults:
       run:
@@ -1336,7 +1341,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     container:
-      image: talebook/talebook:dev
+      image: ghcr.io/${{ github.repository }}:dev
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
       options: --user 1001:1001 --cap-drop ALL --security-opt no-new-privileges --tmpfs /data:rw,uid=1001,gid=1001,mode=0755
     defaults:
       run:

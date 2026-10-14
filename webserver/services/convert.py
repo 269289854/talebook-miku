@@ -119,7 +119,7 @@ class ConvertService(AsyncService):
         args = [EBOOK_CONVERT_CMD, old_path, new_path]
         args += [
             "--book-producer",
-            "PoxenStudio/Talebook(https://mybooks.top)&Talebook/Talebook(https://github.com/talebook/talebook/)",
+            "PoxenStudio/Talebook(https://mybooks.top)&Talebook/Talebook(https://github.com/269289854/talebook-miku/)",
         ]
         if new_path.lower().endswith(".epub"):
             args += ["--epub-version", "2"]
