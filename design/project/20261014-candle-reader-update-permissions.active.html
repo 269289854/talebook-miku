@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Candle Reader 更新流水线权限修复 · WIP</title>
+  <title>Candle Reader 更新流水线权限修复 · ACTIVE</title>
   <style>
     :root {
       color-scheme: light;
@@ -62,7 +62,7 @@
     <div class="meta">
       <span>创建日期：2026-10-14</span>
       <span>所属模块：project</span>
-      <span>状态：<b class="status">WIP</b></span>
+      <span>状态：<b class="status">ACTIVE</b></span>
       <span>需求来源：Check Candle Reader Version 定时任务失败通知</span>
     </div>
   </header>
@@ -119,10 +119,10 @@
       <thead><tr><th>验证项</th><th>当前结果</th></tr></thead>
       <tbody>
         <tr><td><code>uv run --no-project --python 3.11 --with pytest==7.4.4 --with pyyaml python -m pytest tests/test_candle_reader_workflow.py -q -p no:cacheprovider</code></td><td>通过：2 passed。未使用 <code>uv run --extra test</code> ，以免在本机安装整套项目依赖。</td></tr>
-        <tr><td><code>python scripts/check_design_docs.py</code></td><td>待验证。</td></tr>
-        <tr><td><code>git diff --check</code></td><td>待验证。</td></tr>
+        <tr><td><code>uv run --no-project --python 3.11 python scripts/check_design_docs.py</code></td><td>通过（转为 ACTIVE 后）。WIP 阶段仅报出预期的“WIP 不可合并”门禁，无其他问题。本机没有 <code>make</code> ，因此直接运行 <code>make check-design</code> 调用的脚本。</td></tr>
+        <tr><td><code>git diff --cached --check</code></td><td>通过：无空白错误。</td></tr>
         <tr><td><code>act</code> 真实 workflow</td><td>未执行：本机没有 <code>act</code> 命令、没有 <code>gh act</code> 扩展，也没有可用的 Docker。改为在 GitHub Actions 上对本分支执行 <code>workflow_dispatch</code> 做真实验证，作为合并前的阻断项。</td></tr>
-        <tr><td>GitHub Actions 真实运行（本分支 <code>workflow_dispatch</code>）</td><td>待验证：预期成功推送更新分支并创建 PR。因为在本分支上触发，生成的 PR 会以本分支为目标，验证后关闭该 PR 并删除其分支，合并后由 <code>main</code> 上的定时任务重新创建正式 PR。</td></tr>
+        <tr><td>GitHub Actions 真实运行（本分支 <code>workflow_dispatch</code> ，run 38503839804）</td><td>通过：全部步骤成功。流水线检测到上游 <code>v26.10.9</code> ，推送 <code>update-candle-reader-v26.10.9</code> 分支并创建带 <code>dependencies</code> 、<code>automated</code> 标签的 PR #1。该 PR 以本分支为目标，验证后已关闭并删除分支；合并后由 <code>main</code> 上的定时任务重新创建正式 PR。</td></tr>
       </tbody>
     </table>
   </section>
