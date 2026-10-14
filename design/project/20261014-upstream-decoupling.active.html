@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>与上游 talebook/talebook 脱钩 · WIP</title>
+  <title>与上游 talebook/talebook 脱钩 · ACTIVE</title>
   <style>
     :root {
       color-scheme: light;
@@ -63,7 +63,7 @@
     <div class="meta">
       <span>创建日期：2026-10-14</span>
       <span>所属模块：project（影响 webserver、app、docker、.github、文档）</span>
-      <span>状态：<b class="status">WIP</b></span>
+      <span>状态：<b class="status">ACTIVE</b></span>
       <span>需求来源：“这个项目也要和上游脱钩，别耦合上游项目。”</span>
     </div>
   </header>
@@ -152,14 +152,17 @@
       <tbody>
         <tr><td>基础镜像同步（GitHub Actions，run 38504552215）</td><td>通过：<code>ghcr.io/269289854/talebook-base:slim-v8.5.0</code> 包含 linux/amd64、linux/arm64、linux/arm/v7。</td></tr>
         <tr><td>fork 版本核对</td><td>通过：fork 与上游 <code>v0.7.1</code> 指向同一提交 <code>cd19e48</code> ，两边下载包 SHA256 均为 <code>C023C466…AAA9F</code> ；有声书命令行锁定提交 <code>ba210e8</code> 位于 fork 的 <code>main</code> 分支。</td></tr>
-        <tr><td>本地流水线、Docker 配置与脱钩测试（<code>uv run --no-project --python 3.11 --with pytest==7.4.4 --with pyyaml python -m pytest …</code>）</td><td>待回写最终结果。</td></tr>
+        <tr><td>本地流水线、Docker 配置与脱钩测试（<code>uv run --no-project --python 3.11 --with pytest==7.4.4 --with pyyaml python -m pytest …</code>）</td><td>通过：82 passed、2 skipped（覆盖脱钩守卫、项目说明、Docker 阶段、构建与开发镜像、CI、Agent 与 Codex 流水线、Docker 持久化配置）。跳过的 2 项需要 bash、git、jq，本机缺少；插件契约等依赖完整项目环境的测试由 CI 执行。</td></tr>
         <tr><td><code>ruff check ./webserver</code> 与 <code>ruff format --diff ./webserver</code></td><td>通过：All checks passed；181 files already formatted。</td></tr>
-        <tr><td>前端 lint 与相关组件测试</td><td>待验证。</td></tr>
-        <tr><td><code>python scripts/check_design_docs.py</code></td><td>待验证。</td></tr>
-        <tr><td>完整后端测试 <code>make pytest</code></td><td>待验证：本机没有 Docker 与 Calibre，依赖 PR 上的 CI（本方案修复触发分支后首次运行）。</td></tr>
-        <tr><td>镜像构建（build.yml，PR 事件 amd64）</td><td>待验证：确认 Dockerfile 能从 GHCR 拉取基础镜像并完成构建。</td></tr>
+        <tr><td><code>cd app &amp;&amp; npm run lint</code></td><td>通过：0 errors。465 条警告均为既有格式类警告；对本次改动的 8 个前端文件比对 <code>git diff -U0</code> 行号，改动行上 0 条警告。</td></tr>
+        <tr><td><code>npx vitest run test/components/BrsAccountSettings.spec.ts test/components/SidebarHelpMenu.spec.ts</code></td><td>通过：2 files、6 tests passed。</td></tr>
+        <tr><td><code>uv run --no-project --python 3.11 python scripts/check_design_docs.py</code>（即 <code>make check-design</code>）</td><td>转为 ACTIVE 后本地通过；WIP 阶段 CI 的 <code>check-design</code> 仅报出预期的“WIP 不可合并”门禁。</td></tr>
+        <tr><td>完整后端测试（CI <code>test-server</code> ，PR #3，run 38505777266 与 38506328896）</td><td>1287 passed、20 skipped、1 failed。容器 <code>ghcr.io/269289854/talebook-base:slim-v8.5.0</code> 拉取成功，<code>make init</code> 从 fork 下载 <code>voicebook-tool</code> 成功，<code>make lint-py</code> 通过。唯一失败为 <code>tests/test_audiobook.py::TestAudiobookAPI::test_private_podcast_feed_range_token_reset_and_ip_audit</code>：<code>Vary</code> 头重复为 <code>Accept-Encoding, Accept-Encoding</code> 。该问题由 <code>main</code> 既有提交 <code>6d8fe636</code> 引入的 <code>JsonGZipContentEncoding</code> 与 <code>webserver/handlers/audiobook.py</code> 自设 <code>Vary</code> 叠加造成，本方案未修改相关文件；此前 CI 只按 <code>master</code> 触发、从未运行，因此首次暴露。与本次改动无关，另行修复。</td></tr>
+        <tr><td>镜像构建（build.yml，PR 事件 linux/amd64，run 38505777060 与 38506328959）</td><td>通过：PR 构建登录 GHCR 后拉取私有基础镜像，SPA、SSR 与 dev 目标均构建成功；PR 事件按设计不推送。</td></tr>
+        <tr><td>前端 CI（<code>test-ui</code> ：lint 与 Nuxt build）</td><td>通过。</td></tr>
+        <tr><td>Codex 与 Claude Code Review 流水线</td><td>未通过，均与本次改动的正确性无关：Codex 的 hosted runner 自检在初始化容器时失败，因为 <code>ghcr.io/269289854/talebook-miku:dev</code> 要在合并后由 <code>main</code> 首次构建推送；Claude Code Review 因仓库未配置任何 Secrets 而无法鉴权，此前同样无法运行。</td></tr>
         <tr><td><code>act</code> 真实 workflow</td><td>未执行：本机没有 <code>act</code> 、<code>gh act</code> 与可用的 Docker；以 GitHub Actions 真实运行替代，作为合并阻断项。</td></tr>
-        <tr><td>界面审查（interface-review，full）</td><td>待回写。</td></tr>
+        <tr><td>界面审查（interface-review，full）</td><td>范围：<code>chore/upstream-decoupling</code> 相对 <code>origin/main</code> 合并基点的 3 个提交，未提交改动 0 个；排除未跟踪的本地工具目录 <code>.codegraph/</code> 与随仓库分发的阅读器产物。受影响界面：全站页脚、内置主题页脚、侧栏帮助菜单、管理设置 Logo 提示、客户端下载页、主题生成模板、BRS 个人设置页。删除侧检查：页脚删除上游官网 Project 链接属于有意移除，分隔符随之收敛，无残留；BRS 地址默认留空后，输入框提示为中性示例且提交时仍校验地址。结论：无 HIGH、MEDIUM。1 条 LOW（Introduced）：帮助菜单“更新日志”与后台版本检查指向本仓库，在发布首个 Release 前分别打开空页面与显示 404，发布后自动恢复。</td></tr>
         <tr><td>浏览器渲染验证</td><td>未执行：本机没有 Docker，无法按规范启动真实后端；界面改动仅为链接地址与删除一个页脚链接，以组件测试与人工代码审查替代。</td></tr>
       </tbody>
     </table>
