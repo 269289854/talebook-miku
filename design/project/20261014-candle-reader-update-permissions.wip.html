@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Candle Reader 更新流水线权限修复 · WIP</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #1e293b;
+      --muted: #64748b;
+      --line: #d7dee8;
+      --paper: #f7fafc;
+      --accent: #0f766e;
+      --accent-bg: #e6f5f3;
+      --warn: #9a5b13;
+      --warn-bg: #fff7e8;
+      --code: #edf2f7;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 42px 20px 72px;
+      color: var(--ink);
+      background: var(--paper);
+      font: 16px/1.68 system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    main { max-width: 980px; margin: 0 auto; }
+    header, section {
+      margin-bottom: 18px;
+      padding: 26px;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+    }
+    h1 { margin: 0 0 12px; font-size: clamp(30px, 5vw, 46px); line-height: 1.16; }
+    h2 { margin: 0 0 14px; font-size: 22px; line-height: 1.3; }
+    p { margin: 0 0 12px; }
+    p:last-child { margin-bottom: 0; }
+    code { padding: 2px 5px; border-radius: 4px; background: var(--code); font-size: .9em; overflow-wrap: anywhere; }
+    ul { margin: 10px 0 0 22px; padding: 0; }
+    li + li { margin-top: 6px; }
+    table { width: 100%; margin-top: 12px; border-collapse: collapse; background: #fff; }
+    th, td { padding: 11px 12px; border: 1px solid var(--line); text-align: left; vertical-align: top; }
+    th { color: var(--muted); background: #f1f5f9; font-size: 13px; }
+    .meta { display: flex; flex-wrap: wrap; gap: 8px 16px; color: var(--muted); font-size: 13px; }
+    .status { color: var(--warn); font-weight: 800; }
+    .summary { padding: 16px 18px; background: var(--accent-bg); border-left: 4px solid var(--accent); }
+    .warn { padding: 14px 16px; background: var(--warn-bg); border-left: 4px solid var(--warn); }
+    @media (max-width: 680px) {
+      body { padding: 18px 12px 46px; }
+      header, section { padding: 20px; border-radius: 10px; }
+      table { display: block; overflow-x: auto; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>为 Candle Reader 更新流水线申请推送与建 PR 权限</h1>
+    <p class="summary">为 <code>.github/workflows/update-candle-reader.yml</code> 显式声明 <code>contents: write</code> 与 <code>pull-requests: write</code>，并开启仓库设置“允许 GitHub Actions 创建和批准 PR”，让上游发布新版本时流水线能推送更新分支并自动开 PR。</p>
+    <div class="meta">
+      <span>创建日期：2026-10-14</span>
+      <span>所属模块：project</span>
+      <span>状态：<b class="status">WIP</b></span>
+      <span>需求来源：Check Candle Reader Version 定时任务失败通知</span>
+    </div>
+  </header>
+
+  <section>
+    <h2>1. 原始诉求</h2>
+    <div class="warn">“这个项目的流水线怎么也报错了？”随后确认：“你来改。”</div>
+    <p>定时任务 <code>Check Candle Reader Version</code> 自 2026-10-11 起每天失败，失败当天的提交与此前成功时相同，说明原因不在代码本身。</p>
+  </section>
+
+  <section>
+    <h2>2. 目标与边界</h2>
+    <table>
+      <thead><tr><th>类型</th><th>内容</th></tr></thead>
+      <tbody>
+        <tr><td>目标</td><td>上游 <code>talebook/candle-reader</code> 发布新版本时，流水线能推送 <code>update-candle-reader-&lt;版本&gt;</code> 分支并创建 PR，由仓库所有者审查后合并。</td></tr>
+        <tr><td>目标</td><td>写权限只授予这一个 workflow，仓库默认 <code>GITHUB_TOKEN</code> 保持只读。</td></tr>
+        <tr><td>非目标</td><td>不改变检查来源、版本比较、下载解压和 PR 内容；是否改为跟踪 fork 已确认维持现状，仍跟踪上游 Release。</td></tr>
+        <tr><td>非目标</td><td>与上游脱钩的其余改动（镜像、依赖、链接等）由独立方案处理。</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>3. 现状、根因与证据</h2>
+    <ul>
+      <li>2026-10-10 前上游没有新版本，流水线判断无需更新后直接结束，不需要任何写入，因此显示成功。</li>
+      <li>2026-10-11 起上游最新 Release 为 <code>v26.10.9</code>，流水线进入更新分支，在推送 <code>update-candle-reader-v26.10.9</code> 时失败：<code>Permission to 269289854/talebook-miku.git denied to github-actions[bot]</code>（HTTP 403）。</li>
+      <li>仓库设置 <code>default_workflow_permissions</code> 为 <code>read</code>，且 <code>can_approve_pull_request_reviews</code> 为 <code>false</code>；workflow 未声明 <code>permissions</code>，因此只拿到只读令牌，即便能推送也无法创建 PR。</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>4. 方案</h2>
+    <ul>
+      <li>在 workflow 顶层新增 <code>permissions</code>，仅包含 <code>contents: write</code>（推送更新分支）和 <code>pull-requests: write</code>（创建 PR 并添加标签）。</li>
+      <li>通过 GitHub API 开启仓库设置 <code>can_approve_pull_request_reviews</code>，同时保持 <code>default_workflow_permissions: read</code> 不变；该设置已在本方案实施时完成。</li>
+      <li>新增 <code>tests/test_candle_reader_workflow.py</code> ，固定权限范围与 PR 步骤使用的令牌，防止回退为只读或被扩大。</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>5. 影响范围、风险与回滚</h2>
+    <ul>
+      <li>影响范围仅限 <code>update-candle-reader.yml</code> 与一项仓库 Actions 设置；其他 workflow 仍使用只读默认令牌。</li>
+      <li>由 <code>GITHUB_TOKEN</code> 创建的 PR 不会触发其他 workflow，合并前需要人工查看改动。</li>
+      <li>回滚：删除 workflow 中的 <code>permissions</code> 块，并在仓库设置中关闭“允许 GitHub Actions 创建和批准 PR”。</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>6. 测试计划与结果</h2>
+    <table>
+      <thead><tr><th>验证项</th><th>当前结果</th></tr></thead>
+      <tbody>
+        <tr><td><code>uv run --no-project --python 3.11 --with pytest==7.4.4 --with pyyaml python -m pytest tests/test_candle_reader_workflow.py -q -p no:cacheprovider</code></td><td>通过：2 passed。未使用 <code>uv run --extra test</code> ，以免在本机安装整套项目依赖。</td></tr>
+        <tr><td><code>python scripts/check_design_docs.py</code></td><td>待验证。</td></tr>
+        <tr><td><code>git diff --check</code></td><td>待验证。</td></tr>
+        <tr><td><code>act</code> 真实 workflow</td><td>未执行：本机没有 <code>act</code> 命令、没有 <code>gh act</code> 扩展，也没有可用的 Docker。改为在 GitHub Actions 上对本分支执行 <code>workflow_dispatch</code> 做真实验证，作为合并前的阻断项。</td></tr>
+        <tr><td>GitHub Actions 真实运行（本分支 <code>workflow_dispatch</code>）</td><td>待验证：预期成功推送更新分支并创建 PR。因为在本分支上触发，生成的 PR 会以本分支为目标，验证后关闭该 PR 并删除其分支，合并后由 <code>main</code> 上的定时任务重新创建正式 PR。</td></tr>
+      </tbody>
+    </table>
+  </section>
+</main>
+</body>
+</html>
