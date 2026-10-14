@@ -22,7 +22,7 @@ class WatchFolderProvider(SourceBase):
             },
             "required": ["path"],
         },
-        homepage="https://github.com/talebook/talebook",
+        homepage="https://github.com/269289854/talebook-miku",
         runtime_kind="file",
         network_read=False,
     )

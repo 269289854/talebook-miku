@@ -28,7 +28,7 @@ def test_pull_request_description_and_design_preview_rules_are_documented():
     assert "https://github.com/<owner>/<repo>/blob/<commit-sha>/<path>" in instructions
     assert "https://raw.githack.com/<owner>/<repo>/<commit-sha>/<path>" in instructions
     assert (
-        "https://raw.githack.com/talebook/talebook/18113f147aefa0ad79e8c7efd93f1c882610b3ed/"
+        "https://raw.githack.com/269289854/talebook-miku/3cf0a982aceefcb4ec5a466d47a65021d984ec54/"
         "design/webserver/20260721-booksource-large-json-import.active.html"
     ) in instructions
 

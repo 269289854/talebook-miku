@@ -14,7 +14,11 @@ def load_ci_workflow() -> dict:
 def test_server_uses_base_checkout_and_make_without_explicit_git_config():
     test_server = load_ci_workflow()["jobs"]["test-server"]
 
-    assert test_server["container"]["image"] == "talebook/talebook-base:latest"
+    assert test_server["container"]["image"] == "ghcr.io/${{ github.repository_owner }}/talebook-base:slim-v8.5.0"
+    assert test_server["container"]["credentials"] == {
+        "username": "${{ github.actor }}",
+        "password": "${{ secrets.GITHUB_TOKEN }}",
+    }
 
     steps = test_server["steps"]
     checkout = next(step for step in steps if step.get("name") == "Checkout code")

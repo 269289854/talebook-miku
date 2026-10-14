@@ -49,7 +49,7 @@ def test_local_build_uses_lazy_branch_version_for_tags_and_build_arg():
 
     assert result.returncode == 0
     assert "GIT_VERSION=feature-docker-slim" in result.stdout
-    assert "talebook/talebook:feature-docker-slim" in result.stdout
+    assert "ghcr.io/269289854/talebook-miku:feature-docker-slim" in result.stdout
 
 
 def test_makefile_exposes_no_push_targets_or_commands():

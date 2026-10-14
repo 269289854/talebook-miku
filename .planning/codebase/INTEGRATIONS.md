@@ -30,7 +30,7 @@ Supports multiple OAuth providers via `social-auth`:
 
 ## Email (Kindle Push)
 
-- **SMTP Server**: `smtp_server` (e.g., `smtp.talebook.org`)
+- **SMTP Server**: `smtp_server` (default empty, e.g., `smtp.example.com`)
 - **Encryption**: `smtp_encryption` (TLS)
 - **Username**: `smtp_username`
 - **Password**: `smtp_password`
@@ -47,7 +47,7 @@ Supports multiple OAuth providers via `social-auth`:
 - **Purpose**: Usage analytics
 
 ### Candle Reader (阅读器)
-- **Server**: `CANDLE_READER_SERVER` (`https://brs.talebook.org`)
+- **Server**: `CANDLE_READER_SERVER` (default empty)
 - **Purpose**: EPUB reader service
 
 ## Data Storage

@@ -101,7 +101,7 @@ def test_brs_plugin_name_describes_the_server_integration():
     manifest = REGISTRY.get("talebook.annotation.brs").manifest
 
     assert manifest["name"] == "talebook-brs 章评服务器"
-    assert manifest["config_schema"]["properties"]["endpoint"]["default"] == "https://brs.talebook.org"
+    assert manifest["config_schema"]["properties"]["endpoint"]["default"] == ""
 
 
 def test_push_plugins_declare_personal_device_management_route():

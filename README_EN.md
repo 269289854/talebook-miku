@@ -1,9 +1,8 @@
 
-[![GitHub License](https://img.shields.io/github/license/talebook/talebook?style=flat-square)](https://github.com/talebook/talebook/blob/master/LICENSE)
-[![GitHub commit activity](https://img.shields.io/github/commit-activity/w/talebook/talebook?logo=github&amp;style=flat-square&amp;label=commits)]()
-[![Tests](https://github.com/talebook/talebook/actions/workflows/ci.yml/badge.svg)](https://github.com/talebook/talebook/actions/workflows/ci.yml)
-[![Docker Build](https://github.com/talebook/talebook/actions/workflows/build.yml/badge.svg)](https://github.com/talebook/talebook/actions/workflows/build.yml)
-[![Docker Pulls](https://img.shields.io/docker/pulls/talebook/talebook.svg)](https://hub.docker.com/r/talebook/talebook)
+[![GitHub License](https://img.shields.io/github/license/269289854/talebook-miku?style=flat-square)](LICENSE)
+[![GitHub commit activity](https://img.shields.io/github/commit-activity/w/269289854/talebook-miku?logo=github&amp;style=flat-square&amp;label=commits)](https://github.com/269289854/talebook-miku/commits/main)
+[![Tests](https://github.com/269289854/talebook-miku/actions/workflows/ci.yml/badge.svg)](https://github.com/269289854/talebook-miku/actions/workflows/ci.yml)
+[![Docker Build](https://github.com/269289854/talebook-miku/actions/workflows/build.yml/badge.svg)](https://github.com/269289854/talebook-miku/actions/workflows/build.yml)
 
 
 # Tale Book: My Calibre WebServer
@@ -27,7 +26,7 @@ This is a simple personal book management system based on Calibre, supporting **
 * Quick update of book information: Search and import metadata in parallel from multiple sources (Douban, Baidu Encyclopedia, Xinhua Bookstore, Tomato Novel), with optional AI-powered book information recognition;
 * Private mode support: Requires access code to enter the website, convenient for small group sharing; individual books can also be marked as private, visible only to yourself;
 
-This project was previously named: calibre-webserver
+This project is a modified version of [talebook/talebook](https://github.com/talebook/talebook) (formerly calibre-webserver) and is now maintained independently in this repository; images, dependencies and update checks no longer rely on upstream.
 
 ## Highlights of the Past Year
 
@@ -42,9 +41,9 @@ This project was previously named: calibre-webserver
 * **Infrastructure**: Upgraded to Tornado 6.5, switched to uv for Python dependency management, added database migration tooling; Docker base image consolidated into `talebook/talebook-base` for faster builds.
 
 
-## Docker ![Docker Pulls](https://img.shields.io/docker/pulls/talebook/talebook.svg)
+## Docker
 
-Docker is the recommended deployment method. Images are published to both [Docker Hub](https://hub.docker.com/r/talebook/talebook) and [GitHub Container Registry](https://github.com/talebook/talebook/pkgs/container/talebook); pull them as `talebook/talebook` or `ghcr.io/talebook/talebook`, respectively.
+Docker is the recommended deployment method. Images are published to [GitHub Container Registry](https://github.com/269289854/talebook-miku/pkgs/container/talebook-miku); pull them as `ghcr.io/269289854/talebook-miku`.
 
 It is recommended to use `docker-compose`, download the configuration file [docker-compose.yml](docker-compose.yml) from the repository, and then execute the command to start.
 If you want to modify the mounted directories or ports, please modify the docker-compose.yml file.
@@ -58,40 +57,37 @@ TALEBOOK_DATA_DIR=/path/to/talebook-data
 If an existing deployment still uses `/tmp/demo`, back it up before updating the Compose file and set `TALEBOOK_DATA_DIR=/tmp/demo` to keep mounting the existing data. Alternatively, migrate it while the container is stopped. Do not complete setup again without first mounting the original data.
 
 ```
-wget https://raw.githubusercontent.com/talebook/talebook/master/docker-compose.yml
+wget https://raw.githubusercontent.com/269289854/talebook-miku/main/docker-compose.yml
 docker-compose -f docker-compose.yml  up -d
 ```
 
 
 If using native docker, then execute the command:
 
-`docker run -d --name talebook -p &lt;local-port&gt;:80 -v &lt;local-data-directory&gt;:/data talebook/talebook`
+`docker run -d --name talebook -p &lt;local-port&gt;:80 -v &lt;local-data-directory&gt;:/data ghcr.io/269289854/talebook-miku`
 
 
 For example
 
-`mkdir -p "$PWD/data" && docker run -d --name talebook -p 8080:80 -v "$PWD/data:/data" talebook/talebook`
+`mkdir -p "$PWD/data" && docker run -d --name talebook -p 8080:80 -v "$PWD/data:/data" ghcr.io/269289854/talebook-miku`
 
 
 
 ## FAQ
 
-For frequently asked questions, please refer to the [User Guide](document/README.en_US.md). If you can't solve it, please submit an ISSUE.
+For frequently asked questions, please refer to the [User Guide](document/README.en_US.md). If you can't solve it, please submit an [issue](https://github.com/269289854/talebook-miku/issues).
 
 For manual installation, please refer to the [Developer Guide](document/Development.en_US.md)
-
-**If you think this project is great, welcome to support the author!**
 
 **Disclaimer! This project does not maintain any public book library sites. Sites like joyeuse, wenyuange, etc. are built by users. Please do not consult me about related issues, I can't help!**
 
 
 ## Contributors
-[![](https://contrib.rocks/image?repo=talebook/talebook)](https://github.com/talebook/talebook/graphs/contributors)
+[![](https://contrib.rocks/image?repo=269289854/talebook-miku)](https://github.com/269289854/talebook-miku/graphs/contributors)
 
 
 ## Demo
 
-[Demo site (password admin/demodemo)](http://demo.talebook.org)
 
 
 Project demo screenshot below:

@@ -28,8 +28,9 @@ RUN cp -r dist package* /app-static/
 
 # ----------------------------------------
 # 第二阶段，应用运行基线
-# 基础镜像由 https://github.com/talebook/talebook-base 独立维护和发布
-FROM talebook/talebook-base:slim-v8.5.0 AS application-base
+# 基础镜像由上游 talebook/talebook-base 维护；固定版本已通过
+# .github/workflows/mirror-base-image.yml 复制到本仓库所有者的 GHCR，构建只从这里拉取。
+FROM ghcr.io/269289854/talebook-base:slim-v8.5.0 AS application-base
 ARG BUILD_COUNTRY=""
 ARG TARGETARCH
 ARG TARGETVARIANT
@@ -245,7 +246,7 @@ RUN rm -rf /var/www/talebook/app/.output/public/logo && \
 
 # ----------------------------------------
 # 开发环境（前端使用 npm run dev，可将本地 app/ 目录挂载进来实时开发）
-# 构建：docker build --target dev -t talebook/talebook:dev .
+# 构建：docker build --target dev -t ghcr.io/269289854/talebook-miku:dev .
 # 使用：docker-compose -f dev.yml up
 FROM test AS dev
 ARG BUILD_COUNTRY=""

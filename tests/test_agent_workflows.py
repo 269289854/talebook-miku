@@ -25,7 +25,12 @@ def test_claude_action_uses_the_dev_container_and_prepares_current_checkout():
     synchronize = workflow_step(claude_job, "Synchronize project dependencies")
     run_claude = workflow_step(claude_job, "Run Claude Code")
 
-    assert claude_job["container"] == {"image": "talebook/talebook:dev", "options": "--user root"}
+    assert claude_job["container"] == {
+        "image": "ghcr.io/${{ github.repository }}:dev",
+        "credentials": {"username": "${{ github.actor }}", "password": "${{ secrets.GITHUB_TOKEN }}"},
+        "options": "--user root",
+    }
+    assert claude_job["permissions"]["packages"] == "read"
     assert claude_job["defaults"] == {"run": {"shell": "bash"}}
     assert all(
         probe in verify["run"]

@@ -19,7 +19,10 @@ jobs:
       (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
     runs-on: ubuntu-latest
     container:
-      image: talebook/talebook:dev
+      image: ghcr.io/${{ github.repository }}:dev
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
       options: --user root
     defaults:
       run:
@@ -30,6 +33,7 @@ jobs:
       issues: read
       id-token: write
       actions: read # Required for Claude to read CI results on PRs
+      packages: read # Pull the dev image from the owner's GHCR
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

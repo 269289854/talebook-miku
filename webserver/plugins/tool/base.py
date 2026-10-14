@@ -76,7 +76,7 @@ def _manifest(plugin_id, name, description, categories, capabilities, permission
         "compatibility": {"talebook": ">=0.1.0"},
         # Talebook 自有能力由管理员在实例级配置，不存在每用户连接。
         "connection_owners": ["instance"],
-        "homepage": "https://github.com/talebook/talebook",
+        "homepage": "https://github.com/269289854/talebook-miku",
         "license": "GPL-3.0",
         "ui": ui,
     }

@@ -40,8 +40,8 @@
 
 ### 项目地址
 
-- GitHub: https://github.com/talebook/talebook
-- Docker Hub: https://hub.docker.com/r/talebook/talebook
+- GitHub: https://github.com/269289854/talebook-miku
+- GitHub Container Registry: https://github.com/269289854/talebook-miku/pkgs/container/talebook-miku
 
 ---
 
@@ -1381,9 +1381,9 @@ settings = {
     'SOCIAL_AUTH_GITHUB_SECRET': '',
     
     # 邮件配置
-    'smtp_server': 'smtp.talebook.org',
+    'smtp_server': '',
     'smtp_encryption': 'TLS',
-    'smtp_username': 'sender@talebook.org',
+    'smtp_username': '',
     'smtp_password': 'password',
     
     # 元数据配置
@@ -1502,7 +1502,7 @@ version: "2.4"
 services:
   talebook:
     restart: always
-    image: talebook/talebook
+    image: ghcr.io/269289854/talebook-miku
     volumes:
       - "${TALEBOOK_DATA_DIR:-./data}:/data"
     ports:
@@ -1526,7 +1526,7 @@ services:
 
 ```bash
 # 下载 docker-compose.yml
-wget https://raw.githubusercontent.com/talebook/talebook/master/docker-compose.yml
+wget https://raw.githubusercontent.com/269289854/talebook-miku/main/docker-compose.yml
 
 # 启动服务
 docker-compose -f docker-compose.yml up -d
@@ -1542,7 +1542,7 @@ docker run -d \
   --name talebook \
   -p 8080:80 \
   -v "$PWD/data:/data" \
-  talebook/talebook
+  ghcr.io/269289854/talebook-miku
 ```
 
 ### 手动部署
@@ -1559,7 +1559,7 @@ mkdir -p /data/books/{library,extract,upload,convert,progress,settings}
 
 ```bash
 cd /var/www/
-git clone https://github.com/talebook/talebook.git
+git clone https://github.com/269289854/talebook-miku.git
 cd talebook
 ```
 
@@ -1994,9 +1994,8 @@ MIT License
 
 ## 联系方式
 
-- GitHub Issues: https://github.com/talebook/talebook/issues
+- GitHub Issues: https://github.com/269289854/talebook-miku/issues
 - QQ 群：5lSfpJGsBq
-- 爱发电：https://afdian.com/@talebook
 
 ---
 

@@ -41,7 +41,7 @@ class MockMultiTabProvider:
         "data_policy": {"stores_full_text": False, "retention": "source_record"},
         "compatibility": {"talebook": ">=0.1.0"},
         "connection_owners": ["instance", "user"],
-        "homepage": "https://github.com/talebook/talebook",
+        "homepage": "https://github.com/269289854/talebook-miku",
         "license": "GPL-3.0",
         "ui": {"hidden": True},
     }

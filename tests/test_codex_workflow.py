@@ -499,7 +499,8 @@ def test_codex_runs_in_the_hardened_dev_container_without_runtime_install_steps(
 
     assert job["runs-on"] == "ubuntu-latest"
     assert job["container"] == {
-        "image": "talebook/talebook:dev",
+        "image": "ghcr.io/${{ github.repository }}:dev",
+        "credentials": {"username": "${{ github.actor }}", "password": "${{ secrets.GITHUB_TOKEN }}"},
         "options": DEV_CONTAINER_OPTIONS,
     }
     assert job["defaults"] == {"run": {"shell": "bash"}}
@@ -581,7 +582,7 @@ def test_manual_requests_still_require_repository_writer_authorization():
     job_condition = job["if"]
     context_script = workflow_step(step_id="context")["with"]["script"]
 
-    assert workflow_data()["permissions"] == {"contents": "read"}
+    assert workflow_data()["permissions"] == {"contents": "read", "packages": "read"}
     assert "!endsWith(github.actor, '[bot]')" in job_condition
     assert "github.actor != 'github-actions[bot]'" not in job_condition
     assert all(role in job_condition for role in ("OWNER", "MEMBER", "COLLABORATOR"))

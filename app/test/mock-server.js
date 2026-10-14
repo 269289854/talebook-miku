@@ -870,7 +870,7 @@ router.get('/api/user/info', eventHandler(() => accessControlEnvelope() || ({
     show_network_library: showNetworkLibrary,
     opds_enabled: true,
     webdav_enabled: true,
-    FEEDBACK_URL: 'https://github.com/talebook/talebook/issues',
+    FEEDBACK_URL: 'https://github.com/269289854/talebook-miku/issues',
     sidebar_extra_html: '<img class="ma-auto footer-logo" style="max-width: 130px; height: auto;" src="/logo/link.png">',
     allow: { register: true, download: true, push: true, read: true, FEEDBACK: true },
     upload: { chunk_enabled: true, chunk_threshold: 8 * 1024 * 1024, chunk_size: 4 * 1024 * 1024 },
@@ -2046,7 +2046,7 @@ const pluginDefinitions = [
     },
     config_schema: {
       type: 'object',
-      properties: { endpoint: { type: 'string', default: 'https://brs.talebook.org' }, book_map: { type: 'object' }, chapter_map: { type: 'object' }, segment_map: { type: 'object' } },
+      properties: { endpoint: { type: 'string', default: '' }, book_map: { type: 'object' }, chapter_map: { type: 'object' }, segment_map: { type: 'object' } },
     },
     permissions: ['books.read', 'plugin_records.write', 'network.read', 'network.write', 'annotations.write'],
     connection_owners: ['user'],

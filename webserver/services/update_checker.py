@@ -15,7 +15,7 @@ import urllib.request
 from webserver.version import VERSION
 
 
-GITHUB_REPO = "talebook/talebook"
+GITHUB_REPO = "269289854/talebook-miku"
 GITHUB_API_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
 CHECK_INTERVAL_SECONDS = 3 * 3600  # 3 hours
 UPDATE_NOTIFY_STATUS = "system_update"

@@ -1,11 +1,11 @@
 .PHONY: all build test check-design
 
 VER = $(shell git branch --show-current | tr '/' '-')
-IMAGE = talebook/talebook:$(VER)
-REPO1 := talebook/talebook:latest
-REPO2 := talebook/calibre-webserver:latest
-TAG1 := talebook/talebook:server-side-render
-TAG2 = talebook/talebook:server-side-render-$(VER)
+IMAGE_REPO := ghcr.io/269289854/talebook-miku
+IMAGE = $(IMAGE_REPO):$(VER)
+REPO1 := $(IMAGE_REPO):latest
+TAG1 := $(IMAGE_REPO):server-side-render
+TAG2 = $(IMAGE_REPO):server-side-render-$(VER)
 
 all: lint-py-fix build up
 
@@ -18,7 +18,7 @@ build: test build-spa build-ssr
 
 build-spa:
 	docker build --no-cache=false --build-arg BUILD_COUNTRY=CN --build-arg GIT_VERSION=$(VER) \
-		-f Dockerfile -t $(IMAGE) -t $(REPO1) --target production -t $(REPO2) .
+		-f Dockerfile -t $(IMAGE) -t $(REPO1) --target production .
 
 build-ssr:
 	docker build --no-cache=false --build-arg BUILD_COUNTRY=CN --build-arg GIT_VERSION=$(VER) \
@@ -26,7 +26,7 @@ build-ssr:
 
 build-dev:
 	docker build --no-cache=false --build-arg BUILD_COUNTRY=CN \
-		-f Dockerfile -t talebook/talebook:dev --target dev .
+		-f Dockerfile -t $(IMAGE_REPO):dev --target dev .
 
 test:
 	rm -f unittest.log

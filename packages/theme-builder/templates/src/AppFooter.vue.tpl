@@ -4,14 +4,14 @@
             <p :style="textStyle">
                 Powered by
                 <a
-                    href="https://github.com/talebook/talebook"
+                    href="https://github.com/269289854/talebook-miku"
                     target="_blank"
                     rel="noopener"
                     :style="linkStyle"
                 >Talebook</a>
                 &nbsp;|&nbsp;
                 <a
-                    href="https://hub.docker.com/r/talebook/talebook"
+                    href="https://github.com/269289854/talebook-miku/pkgs/container/talebook-miku"
                     target="_blank"
                     rel="noopener"
                     :style="linkStyle"

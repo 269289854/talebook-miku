@@ -170,7 +170,7 @@ def github_evidence(repo: Path, timeout: int, github_repo: str, limit: int) -> d
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo", type=Path, default=Path.cwd(), help="local Talebook repository")
-    parser.add_argument("--github-repo", default="talebook/talebook", help="GitHub owner/repository")
+    parser.add_argument("--github-repo", default="269289854/talebook-miku", help="GitHub owner/repository")
     parser.add_argument("--log-limit", type=lambda value: bounded_int(value, 1, 200), default=40)
     parser.add_argument("--remote-limit", type=lambda value: bounded_int(value, 1, 100), default=30)
     parser.add_argument("--github-limit", type=lambda value: bounded_int(value, 1, 100), default=50)

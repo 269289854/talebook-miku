@@ -100,8 +100,8 @@ cp design/TEMPLATE.html design/<module>/yyyymmdd-<feature>.wip.html
   https://raw.githack.com/<owner>/<repo>/<commit-sha>/<path>
   ```
 - 示例：
-  - GitHub 文件：`https://github.com/talebook/talebook/blob/18113f147aefa0ad79e8c7efd93f1c882610b3ed/design/webserver/20260721-booksource-large-json-import.active.html`
-  - RawGitHack 预览：`https://raw.githack.com/talebook/talebook/18113f147aefa0ad79e8c7efd93f1c882610b3ed/design/webserver/20260721-booksource-large-json-import.active.html`
+  - GitHub 文件：`https://github.com/269289854/talebook-miku/blob/3cf0a982aceefcb4ec5a466d47a65021d984ec54/design/webserver/20260721-booksource-large-json-import.active.html`
+  - RawGitHack 预览：`https://raw.githack.com/269289854/talebook-miku/3cf0a982aceefcb4ec5a466d47a65021d984ec54/design/webserver/20260721-booksource-large-json-import.active.html`
 
 ### 测试
 

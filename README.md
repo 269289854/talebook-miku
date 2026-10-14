@@ -1,8 +1,7 @@
-[![GitHub License](https://img.shields.io/github/license/talebook/talebook?style=flat-square)](https://github.com/talebook/talebook/blob/master/LICENSE)
-[![GitHub commit activity](https://img.shields.io/github/commit-activity/w/talebook/talebook?logo=github&style=flat-square&label=commits)]()
-[![Tests](https://github.com/talebook/talebook/actions/workflows/ci.yml/badge.svg)](https://github.com/talebook/talebook/actions/workflows/ci.yml)
-[![Docker Build](https://github.com/talebook/talebook/actions/workflows/build.yml/badge.svg)](https://github.com/talebook/talebook/actions/workflows/build.yml)
-[![Docker Pulls](https://img.shields.io/docker/pulls/talebook/talebook.svg)](https://hub.docker.com/r/talebook/talebook)
+[![GitHub License](https://img.shields.io/github/license/269289854/talebook-miku?style=flat-square)](LICENSE)
+[![GitHub commit activity](https://img.shields.io/github/commit-activity/w/269289854/talebook-miku?logo=github&style=flat-square&label=commits)](https://github.com/269289854/talebook-miku/commits/main)
+[![Tests](https://github.com/269289854/talebook-miku/actions/workflows/ci.yml/badge.svg)](https://github.com/269289854/talebook-miku/actions/workflows/ci.yml)
+[![Docker Build](https://github.com/269289854/talebook-miku/actions/workflows/build.yml/badge.svg)](https://github.com/269289854/talebook-miku/actions/workflows/build.yml)
 
 
 # Tale Book: My Calibre WebServer
@@ -28,7 +27,7 @@ A better online books library management website built on Calibre + Vue
 * 支持快捷更新书籍信息：支持从百度百科、豆瓣、新华书店、番茄小说等多信息源并行搜索导入，还可接入 AI 大模型自动识别书籍信息；
 * 支持私人模式：需要输入访问码，才能进入网站，便于小圈子分享网站；支持将单本书设为私藏，仅自己可见；
 
-本项目曾用名：calibre-webserver
+本项目基于 [talebook/talebook](https://github.com/talebook/talebook)（曾用名 calibre-webserver）修改，现由本仓库独立维护，镜像、依赖和版本更新都不再依赖上游。
 
 ## AI Skills — 用自然语言管理 Talebook
 
@@ -86,7 +85,7 @@ dsh plugin --profile web add github:hehetoshang/dsh-talebook-plugin
 
 ## 全平台客户端 — Moke
 
-**[Moke](https://github.com/talebook/moke)** 是 Talebook 的全平台客户端，跨平台支持 Windows、macOS、Linux、Android、iOS、iPadOS 及 OpenHarmony（Alpha，这个需要自己编译）。启动后输入你的 Talebook 服务器地址即可浏览、搜索、下载并阅读电子书。
+**[Moke](https://github.com/269289854/moke-miku)** 是 Talebook 的客户端，支持 Windows、Linux 和 Android。启动后输入你的 Talebook 服务器地址即可浏览、搜索、下载并阅读电子书。
 * **专业阅读器**：内嵌 [readest](https://github.com/readest/readest) 阅读器，支持 EPUB、PDF 等多种格式，提供高亮、笔记、书签、标注等进阶阅读功能；
 * **离线下载**：将服务器上的书籍一键下载到本地，断网也能随时打开阅读；支持批量下载和 EPUB 完整性校验；
 * **局域网友好**：完美支持自签名证书和 HTTP/HTTPS 局域网服务器，NAS 用户开箱即用；
@@ -101,7 +100,7 @@ dsh plugin --profile web add github:hehetoshang/dsh-talebook-plugin
 * **扩展系统(Alpha)**：支持安装和管理本地扩展，扩展可提供后端进程和前端界面，通过 HTTP/WebSocket 与主应用通信；
 * **阅读器进阶能力**：TTS 语音朗读、RSVP 快速阅读、OPDS 目录浏览与订阅、多端云同步（WebDAV / KOReader KOSync）、AI 阅读助手、Word Lens 行间翻译、多词典与多翻译引擎、自定义主题/字体/背景纹理、阅读统计与阅读标尺、硬件翻页键绑定等；
 
-从 [Releases](https://github.com/talebook/moke/releases) 页面下载对应平台的安装包（`.msi` / `.exe` / `.dmg` / `.deb` / `.AppImage` / `.apk` / `.ipa`），即刻体验全平台阅读。
+从 [Releases](https://github.com/269289854/moke-miku/releases) 页面下载对应平台的安装包（`.exe` / `.msi` / `.AppImage` / `.deb` / `.rpm` / `.apk`）。
 
 ## 安卓客户端 — Talebook Android
 
@@ -124,7 +123,7 @@ dsh plugin --profile web add github:hehetoshang/dsh-talebook-plugin
 
 ## 有声书命令行客户端 — Talebook Audio CLI
 
-**[Talebook Audio CLI](https://github.com/hehetoshang/talebook-audio-cli)** 是独立安装的 Talebook 有声书终端客户端：使用账号密码直接登录（不依赖浏览器 Cookie），列出当前账号可访问的已发布有声书，通过本机 `mpv` 播放，或经 OpenXiaoAI Bridge 在小爱音箱上播放。
+**[Talebook Audio CLI](https://github.com/269289854/talebook-audio-cli)** 是独立安装的 Talebook 有声书终端客户端：使用账号密码直接登录（不依赖浏览器 Cookie），列出当前账号可访问的已发布有声书，通过本机 `mpv` 播放，或经 OpenXiaoAI Bridge 在小爱音箱上播放。
 
 * **账号密码登录**：`talebook-audio configure --server https://books.example.com --username alice` 保存服务地址与账号，`talebook-audio login` 以隐藏输入读取密码；客户端只保存服务地址、用户名和登录 Cookie，不保存密码；
 * **浏览与播放**：`talebook-audio books` 列出可访问的已发布有声书，`talebook-audio play --book-id 42 --chapter 3` 按书籍或有声版本播放并指定起始章节，也支持交互选择与单键控制（暂停/继续、上一章/下一章）；
@@ -137,11 +136,11 @@ dsh plugin --profile web add github:hehetoshang/dsh-talebook-plugin
 python3 -m pip install talebook-audio-cli
 ```
 
-源码与发布：[talebook-audio-cli](https://github.com/hehetoshang/talebook-audio-cli) · [PyPI](https://pypi.org/project/talebook-audio-cli/)
+源码与发布：[talebook-audio-cli](https://github.com/269289854/talebook-audio-cli) · [PyPI](https://pypi.org/project/talebook-audio-cli/)
 
-## Docker ![Docker Pulls](https://img.shields.io/docker/pulls/talebook/talebook.svg)
+## Docker
 
-部署比较简单，建议采用 Docker。镜像同时发布到 [Docker Hub](https://hub.docker.com/r/talebook/talebook) 和 [GitHub Container Registry](https://github.com/talebook/talebook/pkgs/container/talebook)，可分别使用 `talebook/talebook` 或 `ghcr.io/talebook/talebook` 拉取。
+部署比较简单，建议采用 Docker。镜像发布在 [GitHub Container Registry](https://github.com/269289854/talebook-miku/pkgs/container/talebook-miku)，使用 `ghcr.io/269289854/talebook-miku` 拉取。
 
 推荐使用`docker-compose`，下载仓库中的配置文件[docker-compose.yml](docker-compose.yml)，然后执行命令启动即可。
 若希望修改挂载的目录或端口，请修改docker-compose.yml文件。
@@ -155,50 +154,46 @@ TALEBOOK_DATA_DIR=/path/to/talebook-data
 如果旧部署仍使用 `/tmp/demo`，升级 Compose 前请先备份该目录，并设置 `TALEBOOK_DATA_DIR=/tmp/demo` 继续挂载原数据；也可以在停止容器后自行迁移到新的持久化目录。不要在没有原数据挂载的情况下完成再次初始化。
 
 ```
-wget https://raw.githubusercontent.com/talebook/talebook/master/docker-compose.yml
+wget https://raw.githubusercontent.com/269289854/talebook-miku/main/docker-compose.yml
 docker-compose -f docker-compose.yml  up -d
 ```
 
 
 如果使用原生docker，那么执行命令：
 
-`docker run -d --name talebook -p <本机端口>:80 -v <本机data目录>:/data talebook/talebook`
+`docker run -d --name talebook -p <本机端口>:80 -v <本机data目录>:/data ghcr.io/269289854/talebook-miku`
 
 
 例如
 
-`mkdir -p "$PWD/data" && docker run -d --name talebook -p 8080:80 -v "$PWD/data:/data" talebook/talebook`
+`mkdir -p "$PWD/data" && docker run -d --name talebook -p 8080:80 -v "$PWD/data:/data" ghcr.io/269289854/talebook-miku`
 
 
 ## Star History
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://star-history.dera.page/svg?repos=talebook/talebook&type=date&theme=dark&legend=top-left" />
-   <source media="(prefers-color-scheme: light)" srcset="https://star-history.dera.page/svg?repos=talebook/talebook&type=date&legend=top-left" />
-   <img alt="Star History Chart" src="https://star-history.dera.page/svg?repos=talebook/talebook&type=date&legend=top-left" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://star-history.dera.page/svg?repos=269289854/talebook-miku&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://star-history.dera.page/svg?repos=269289854/talebook-miku&type=date&legend=top-left" />
+   <img alt="Star History Chart" src="https://star-history.dera.page/svg?repos=269289854/talebook-miku&type=date&legend=top-left" />
  </picture>
 
 
 
 ## 常见问题 
 
-常见问题请参阅[使用指南](document/README.zh_CN.md)，无法解决的话，提个ISSUES，[进Q群交流](https://qm.qq.com/q/5lSfpJGsBq)
+常见问题请参阅[使用指南](document/README.zh_CN.md)，无法解决的话，请提交 [Issues](https://github.com/269289854/talebook-miku/issues)。
 
 手动安装请参考[开发者指南](document/Development.zh_CN.md)（[English](document/Development.en_US.md)）
 
 NAS安装指南：请参考网友们的帖子：[帖子1](https://post.smzdm.com/p/a992p6e0/)，[帖子2](https://post.smzdm.com/p/a3d7ox0k/), [帖子3](https://odcn.top/2019/02/26/2734/)
 
-**如果觉得本项目很棒，欢迎前往[爱发电](https://afdian.com/@talebook)，赞助作者，持续优化，为爱充电！**
-
 **再次声明！本项目没有维护任何公开的书库站点，各类网站均属于网友搭建的，相关问题请不要咨询我，爱莫能助！**
 
 
 ## 贡献者
-[![](https://contrib.rocks/image?repo=talebook/talebook)](https://github.com/talebook/talebook/graphs/contributors)
+[![](https://contrib.rocks/image?repo=269289854/talebook-miku)](https://github.com/269289854/talebook-miku/graphs/contributors)
 
 
 ## 演示
-
-[Demo站点（密码 admin/demodemo ）](http://demo.talebook.org)
 
 [视频简介（感谢@Pan06da的制作）](https://player.bilibili.com/player.html?aid=482258810&bvid=BV1AT411S7c3&cid=1018595245&page=1)
 

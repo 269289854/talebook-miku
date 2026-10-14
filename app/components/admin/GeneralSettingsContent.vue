@@ -812,7 +812,7 @@ const cards = computed(() => [
         tips: [
             {
                 text: t('admin.settings.message.logoInfo'),
-                link: 'https://github.com/talebook/talebook/blob/master/document/README.zh_CN.md#logo',
+                link: 'https://github.com/269289854/talebook-miku/blob/main/document/README.zh_CN.md#logo',
             }
         ],
     },
