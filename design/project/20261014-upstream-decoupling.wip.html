@@ -86,7 +86,8 @@
         <tr><td>非目标</td><td>不改产品名，界面与文档继续叫 Talebook。</td></tr>
         <tr><td>非目标</td><td>Candle Reader 继续跟踪上游 Release（由独立方案 <code>design/project/20261014-candle-reader-update-permissions.active.html</code> 修复权限）。</td></tr>
         <tr><td>非目标</td><td>不改写方案文档、调研资料等历史记录；README 中真实的第三方工具与依赖（candle-reader、Agent Skill、DSH 插件）保留原链接。</td></tr>
-        <tr><td>非目标</td><td>不处理 <code>docker/moke-online-reading</code>：它基于上游发布镜像打补丁，可能正用于实际部署，是否删除需仓库所有者决定。</td></tr>
+        <tr><td>目标</td><td>删除 <code>docker/moke-online-reading</code>：它在上游发布镜像 <code>talebook/talebook:v26.08.11</code> 上打补丁，仓库所有者确认已不再使用。</td></tr>
+        <tr><td>非目标</td><td><code>docker/*-patch.Dockerfile</code> 通过构建参数接收基础镜像，不依赖上游，保留不动。</td></tr>
       </tbody>
     </table>
   </section>
@@ -125,6 +126,7 @@
       <li>依赖：<code>requirements.txt</code> 改从 fork 下载语音库，<code>.gitmodules</code> 改指 fork。</li>
       <li>后端：版本检查查本仓库 Release；<code>CANDLE_READER_SERVER</code> 、BRS 插件默认地址、<code>smtp_server</code> 、<code>smtp_username</code> 默认留空；反馈、首页 Star、插件主页、User-Agent 与电子书制作者信息改指本仓库。</li>
       <li>前端：页脚与帮助菜单链接改指本仓库与 GHCR 包页，删除上游官网链接；管理设置的 Logo 文档链接、客户端下载链接（改为 <code>269289854/moke-miku</code>）与主题模板同步修改。</li>
+      <li>删除不再使用、基于上游发布镜像打补丁的 <code>docker/moke-online-reading</code> 。</li>
       <li>文档与工具：README（中英）、CODE_WIKI、开发与使用文档、SECURITY 改指本仓库；删除上游作者的 FUNDING 与向上游官网提交数据的 <code>tools/update.sh</code> ；产品技能脚本默认仓库改为本仓库。README 注明基于上游修改（GPLv3 要求）。</li>
       <li>测试：新增 <code>tests/test_upstream_decoupling.py</code> 扫描运行、构建与发布输入，禁止重新出现上游链接、镜像、官网与原作者账号；新增基础镜像 tag 一致性检查；同步更新受影响的流水线、Makefile、插件契约与前端测试。</li>
     </ul>
@@ -138,6 +140,7 @@
       <li>本仓库尚未发布 Release：版本检查会记录 <code>GitHub API error: 404</code> ，帮助菜单“更新日志”打开空页面；发布首个 Release 后恢复正常。</li>
       <li>已有部署：保存过的设置不受默认值变化影响；只依赖默认值的阅读同步与邮件需由管理员填写地址。上游地址本就无法替代自己的服务，因此不会让原本可用的功能失效。</li>
       <li>镜像 tag <code>master</code> 改为 <code>main</code> ；此前从未成功发布过镜像，没有用户依赖旧 tag。</li>
+      <li>删除的 <code>docker/moke-online-reading</code> 补丁中，后端在线阅读与书库排序改动已在源码中；其 nginx 缓存策略（<code>/api/book/&lt;id&gt;.&lt;fmt&gt;?mode=read</code> 返回 <code>private, no-cache</code>）未进入 <code>conf/nginx</code> 。后端在阅读模式下自行设置同样的 <code>Cache-Control</code> ，是否需要在 nginx 层补齐留待后续确认。</li>
       <li>回滚：还原本方案涉及的提交；GitHub 侧的 fork、GHCR 镜像与私密漏洞报告可保留，不影响回滚。</li>
     </ul>
   </section>
