@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="停止 Candle Reader 自动同步，消除重复失败通知并保留现有阅读器资源。" />
+    <link rel="icon" href="data:," />
+    <title>停用上游阅读器同步 · ACTIVE</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f6f7fb;
+        --panel: #ffffff;
+        --ink: #1f2937;
+        --muted: #5a6475;
+        --line: #d7dfeb;
+        --accent: #df6d16;
+        --accent-soft: #fff3e7;
+        --blue-soft: #eef5ff;
+        --green: #1f7a53;
+        --green-soft: #e7f5ee;
+        --warn-soft: #fff8eb;
+        --red: #a43d3d;
+        --red-soft: #fdecec;
+        --shadow: 0 12px 30px rgba(15, 23, 42, .08);
+        --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+        --mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      }
+
+      * { box-sizing: border-box; }
+      html { scroll-behavior: smooth; }
+      body {
+        margin: 0;
+        color: var(--ink);
+        background: radial-gradient(circle at top right, rgba(223, 109, 22, .10), transparent 25%), linear-gradient(180deg, #fbfcff 0%, var(--bg) 100%);
+        font-family: var(--sans);
+        line-height: 1.68;
+      }
+      a { color: #315f91; text-underline-offset: 3px; }
+      a:focus-visible, [tabindex="0"]:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+      code, .mono { font-family: var(--mono); font-size: .9em; }
+      code { padding: .1em .34em; border-radius: 4px; background: #f0f3f8; overflow-wrap: anywhere; }
+      .skip-link { position: fixed; z-index: 20; top: 8px; left: 8px; padding: 8px 12px; color: #fff; background: var(--ink); transform: translateY(-160%); }
+      .skip-link:focus { transform: translateY(0); }
+
+      .page { width: min(1160px, calc(100vw - 32px)); margin: 0 auto; padding: 24px 0 56px; }
+      .hero, .card { background: var(--panel); border: 1px solid rgba(215, 223, 235, .95); border-radius: 20px; box-shadow: var(--shadow); }
+      .hero { position: relative; margin-bottom: 18px; padding: 32px 34px; overflow: hidden; }
+      .hero::after { position: absolute; right: -46px; bottom: -56px; width: 240px; height: 240px; background: radial-gradient(circle, rgba(223, 109, 22, .18), rgba(223, 109, 22, 0)); content: ""; pointer-events: none; }
+      h1 { position: relative; z-index: 1; max-width: 1060px; margin: 0 0 10px; font-size: clamp(30px, 4vw, 48px); line-height: 1.12; letter-spacing: -.025em; }
+      .sub { position: relative; z-index: 1; max-width: 1060px; margin: 0; color: var(--muted); font-size: 17px; }
+      .chips { position: relative; z-index: 1; display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
+      .chip { display: inline-flex; align-items: center; min-height: 32px; padding: 5px 11px; border-radius: 999px; color: #536176; background: #eef2f7; font-size: 12px; font-weight: 700; }
+      .chip.wip { color: #9a4d0c; background: var(--accent-soft); }
+      .chip.active { color: var(--green); background: var(--green-soft); }
+      .chip.superseded { color: var(--red); background: var(--red-soft); }
+
+      .content-grid { display: block; }
+      .main-column { min-width: 0; }
+      .card { margin-bottom: 18px; padding: 26px 28px; scroll-margin-top: 18px; }
+      .card:last-child { margin-bottom: 0; }
+      h2 { margin: 0 0 15px; font-size: 23px; line-height: 1.25; }
+      h3 { margin: 22px 0 10px; font-size: 17px; line-height: 1.35; }
+      p { margin: 0 0 13px; }
+      p, li { color: #283548; font-size: 14px; }
+      ul, ol { margin: 10px 0 0 20px; padding: 0; }
+      li + li { margin-top: 6px; }
+
+      .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+      .choice { padding: 17px; border: 1px solid var(--line); border-radius: 16px; background: #fff; }
+      .choice h3 { margin-top: 0; }
+      .choice.recommended { border-color: #efbe8c; background: linear-gradient(180deg, #fffaf5 0%, #fff 100%); }
+      .callout { margin-top: 14px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 14px; background: #f8fafc; }
+      .callout.warn { border-color: #f0d7a8; background: var(--warn-soft); }
+      .callout.good { border-color: #bddcc4; background: var(--green-soft); }
+      .callout.danger { border-color: #e3b0b0; background: var(--red-soft); }
+      .callout p:last-child, .choice p:last-child { margin-bottom: 0; }
+
+      .flow { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 14px; }
+      .step { position: relative; min-height: 132px; padding: 16px; border: 1px solid var(--line); border-radius: 16px; background: linear-gradient(180deg, #fff 0%, #fafbfd 100%); }
+      .step + .step::before { position: absolute; top: 18px; left: -17px; display: grid; place-items: center; width: 23px; height: 23px; color: var(--accent); background: #fff; border: 1px solid #efbe8c; border-radius: 50%; content: "→"; font-weight: 800; }
+      .step b { display: block; margin-bottom: 6px; font-size: 14px; }
+      .step p { margin: 0; color: var(--muted); font-size: 13px; }
+      .label { display: block; margin-bottom: 7px; color: var(--accent); font: 800 10px/1.3 var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+
+      .matrix-legend { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+      .matrix-legend span, .matrix-state { display: inline-flex; min-height: 25px; align-items: center; justify-content: center; padding: 3px 8px; border-radius: 999px; font-size: 11px; font-weight: 800; white-space: nowrap; }
+      .matrix-yes { color: #176443; background: var(--green-soft); }
+      .matrix-conditional { color: #9a4d0c; background: var(--accent-soft); }
+      .matrix-no { color: #526072; background: #eef2f7; }
+      .matrix-note { color: var(--muted); font-size: 12px; }
+
+      .table-wrap { margin-top: 14px; overflow-x: auto; border: 1px solid var(--line); border-radius: 14px; }
+      table { width: 100%; min-width: 680px; border-collapse: collapse; background: #fff; font-size: 13px; }
+      .feature-matrix { min-width: 1020px; }
+      .feature-matrix .matrix-cell { text-align: center; }
+      th, td { padding: 11px 12px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+      th { color: #556376; background: #f8fafc; font-size: 12px; }
+      th:last-child, td:last-child { border-right: 0; }
+      tr:last-child td { border-bottom: 0; }
+      pre { margin: 14px 0 0; padding: 15px 17px; overflow-x: auto; color: #eef3f8; background: #263244; border-radius: 14px; font: 13px/1.65 var(--mono); }
+      pre code { padding: 0; color: inherit; background: transparent; font: inherit; white-space: pre; }
+      .pending { color: #9a5c09; font-weight: 800; }
+      .verified { color: var(--green); font-weight: 800; }
+
+      .toc-edge { display: none; }
+      .toc-edge a { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 3px; align-items: center; width: 100%; min-height: 36px; padding: 6px 5px; color: #69778a; border-radius: 9px; text-decoration: none; }
+      .toc-edge a:hover { color: var(--accent); background: var(--accent-soft); }
+      .rail-index { font: 800 10px/1 var(--mono); text-align: center; }
+      .rail-title { min-width: 0; overflow: hidden; font-size: 12px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+      .toc-edge a[aria-current="location"] { color: #fff; background: #9a4d0c; box-shadow: 0 5px 14px rgba(154, 77, 12, .25); }
+
+      .toc-fab { position: fixed; z-index: 18; right: 18px; bottom: 18px; }
+      .toc-fab summary { display: flex; min-height: 46px; align-items: center; gap: 8px; padding: 10px 14px; color: #fff; background: #263244; border-radius: 999px; box-shadow: 0 10px 28px rgba(15, 23, 42, .22); cursor: pointer; font-size: 12px; font-weight: 800; list-style: none; }
+      .toc-fab summary::-webkit-details-marker { display: none; }
+      .toc-fab summary::before { color: #ffad6c; content: "≡"; font-size: 17px; line-height: 1; }
+      .toc-fab[open] summary { background: var(--accent); }
+      .toc-fab nav { position: absolute; right: 0; bottom: 56px; width: min(310px, calc(100vw - 36px)); padding: 10px; background: #fff; border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 16px 42px rgba(15, 23, 42, .20); }
+      .toc-fab strong { display: block; padding: 7px 9px 10px; color: var(--muted); font-size: 11px; letter-spacing: .05em; text-transform: uppercase; }
+      .toc-fab a { display: block; padding: 9px 10px; color: #536176; border-radius: 9px; text-decoration: none; font-size: 13px; }
+      .toc-fab a:hover { background: var(--accent-soft); }
+      .toc-fab a[aria-current="location"] { color: #9a4d0c; background: var(--accent-soft); font-weight: 800; }
+      footer { margin-top: 16px; color: var(--muted); font-size: 12px; text-align: center; }
+
+      @media (min-width: 1440px) {
+        .toc-edge { position: fixed; z-index: 18; top: 50%; right: max(4px, calc((100vw - 1160px) / 2 - 136px)); display: flex; flex-direction: column; gap: 3px; width: 124px; padding: 8px; background: rgba(255, 255, 255, .96); border: 1px solid rgba(215, 223, 235, .98); border-radius: 16px; box-shadow: 0 10px 28px rgba(15, 23, 42, .13); transform: translateY(-50%); }
+        .toc-fab { display: none; }
+      }
+      @media (max-width: 720px) {
+        .page { width: calc(100vw - 20px); padding-top: 10px; }
+        .hero, .card { border-radius: 16px; }
+        .hero { padding: 24px 20px; }
+        h1 { font-size: clamp(28px, 9vw, 40px); }
+        .sub { font-size: 15px; }
+        .card { padding: 21px 19px; }
+        .grid, .flow { grid-template-columns: 1fr; }
+        .step { min-height: 0; }
+        .step + .step::before { top: -17px; left: 17px; transform: rotate(90deg); }
+        .toc-fab { right: 10px; bottom: 10px; }
+      }
+      @media (max-width: 440px) {
+        .chip { width: fit-content; }
+      }
+      @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+      @page { margin: 14mm; }
+      @media print {
+        body { background: #fff; }
+        .page { width: 100%; padding: 0; }
+        .hero, .card { box-shadow: none; }
+        .content-grid { display: block; }
+        .toc-edge, .toc-fab, .skip-link { display: none; }
+        h1, h2, h3 { break-after: avoid; }
+        .choice, .callout, .step, .table-wrap, pre { break-inside: avoid; }
+        a { color: inherit; }
+      }
+    </style>
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">跳到正文</a>
+    <main class="page" id="main-content">
+      <header class="hero">
+        <h1>停用上游阅读器同步</h1>
+        <p class="sub">停止从 talebook/candle-reader 自动下载更新，保留项目当前维护的阅读器资源。</p>
+        <div class="chips">
+          <span class="chip">创建日期：2026-11-12</span>
+          <span class="chip">模块：project</span>
+          <span class="chip active">ACTIVE · 已验证</span>
+          <span class="chip">来源：用户每日失败邮件排查与后续停用要求</span>
+        </div>
+      </header>
+      <section class="card" id="request">
+        <h2>原始诉求</h2>
+        <p>用户收到 Check Candle Reader Version 每日失败邮件，明确要求“不再同步上游阅读器，改完代码你自己发布 GitHub”。本次交付为代码提交与 GitHub 发布，不创建产品版本或 Release。</p>
+        <p>2026-11-12 的运行 43158141449 在推送更新分支时收到 403。仓库默认令牌只读，任务每天把 v1.1.0 与上游 v26.10.9 比较并重复尝试更新。</p>
+      </section>
+      <section class="card" id="goals">
+        <h2>目标与边界</h2>
+        <ul>
+          <li>停用 GitHub 当前工作流，立即停止后续定时触发。</li>
+          <li>从代码中删除上游同步工作流的 schedule、repository_dispatch 和 workflow_dispatch 全部入口。</li>
+          <li>保留 app/public/static/candle-reader、candle-reader-version.txt 及 creader.html，当前在线阅读继续使用已打包资源。</li>
+          <li>其他 CI、构建、仓库默认权限、未合并的上游脱钩工作不在本次修改范围内。</li>
+        </ul>
+      </section>
+      <section class="card" id="design">
+        <h2>方案与决策核对</h2>
+        <div class="table-wrap"><table>
+          <thead><tr><th>决策</th><th>选择与依据</th></tr></thead>
+          <tbody>
+            <tr><td>停用范围</td><td>完整删除同步任务。用户已明确不再同步，保留手动或外部事件入口会留下自动引入上游代码的路径。</td></tr>
+            <tr><td>现有阅读器</td><td>保留所有运行文件及版本记录，停止更新与删除阅读功能分别处理。</td></tr>
+            <tr><td>即时生效</td><td>先将 GitHub 工作流标记为 disabled_manually；再发布删除工作流的代码。</td></tr>
+            <tr><td>回归防护</td><td>遍历真实工作流，拒绝已退役的同步 job、dispatch 事件及上游下载来源。</td></tr>
+            <tr><td>本地 act</td><td>本次完整删除目标 workflow，删除后没有可运行的目标 job，不能执行已删除路径。使用回归测试与 GitHub 工作流状态、默认分支文件状态验证退役；不把静态检查描述为真实 job 执行。</td></tr>
+          </tbody>
+        </table></div>
+        <p class="callout">相关修改只涉及工程配置，无界面影响。阅读器脚本、模板和产品交互均保留，因此不需要界面截图或 interface-review。</p>
+      </section>
+      <section class="card" id="impact">
+        <h2>影响、风险与回滚</h2>
+        <p>未来阅读器升级由本项目人工维护，不再自动下载上游发行包或创建更新 PR。其他任务仍会按各自配置运行并发送通知。</p>
+        <p>旧的权限修复 PR #2 与本次停用方向冲突，不应合并。回滚需要显式恢复已删除工作流并重新启用；只恢复文件或只启用历史记录不足以恢复完整同步。</p>
+      </section>
+      <section class="card" id="tests">
+        <h2>测试结果</h2>
+                <div class="table-wrap"><table>
+          <thead><tr><th>验证</th><th>实际结果</th></tr></thead>
+          <tbody>
+            <tr><td>旧配置回归验证：<code>uv run --no-project --python 3.11 --with pytest==7.4.4 --with pyyaml python -m pytest tests/test_candle_reader_sync_retirement.py -q -p no:cacheprovider</code></td><td>删除前按预期失败，准确定位 update-candle-reader.yml；删除后通过。</td></tr>
+            <tr><td>WSL Ubuntu：<code>python3 -m pytest tests/test_candle_reader_sync_retirement.py tests/test_ci_workflow.py tests/test_check_design_docs.py -q -p no:cacheprovider</code></td><td>33 passed。通过 PYTHONPATH 复用 uv 缓存中的 pytest 与 PyYAML；真实使用 WSL 的 Linux Python 运行。</td></tr>
+            <tr><td>Windows：同上测试集合，使用 uv 的 Python 3.11</td><td>30 passed，3 failed。既有方案测试分别受 Windows 大小写路径相等、两个反斜杠路径断言影响；相关脚本与测试相对 origin/main 无修改。Linux 同一集合全部通过。</td></tr>
+            <tr><td>Windows：仅本次回归测试与 test_ci_workflow.py</td><td>3 passed。</td></tr>
+            <tr><td><code>uv run --no-project --python 3.11 --with ruff ruff check tests/test_candle_reader_sync_retirement.py</code><br><code>uv run --no-project --python 3.11 --with ruff ruff format --check tests/test_candle_reader_sync_retirement.py</code></td><td>All checks passed；1 file already formatted。</td></tr>
+            <tr><td>GitHub API：workflow 350837922 状态及进行中的运行数</td><td>disabled_manually；进行中的运行数为 0。最后一次运行仍为 2026-11-12 的既有失败记录。</td></tr>
+            <tr><td><code>uv run --no-project --python 3.11 python scripts/check_design_docs.py</code>（make check-design 的等价入口）</td><td>140 design document(s) passed。</td></tr>
+            <tr><td><code>git diff --check</code> 与阅读器文件差异核对</td><td>无空白错误；已打包阅读器文件、版本记录与阅读模板无差异。</td></tr>
+          </tbody>
+        </table></div>
+        <p>不执行完整 Calibre 后端或前端构建：本次没有运行时代码或依赖改动。act 不适用原因见方案表格，没有创建或更改任何继续运行的 job。</p>
+      </section>
+    </main>
+  </body>
+</html>
